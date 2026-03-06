@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TT A-103 </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nuevoAdmin.css') }}">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="logo"></div>
+        <nav class="menu">
+            <a href="{{ url_for('home') }}">Inicio</a>
+            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+        </nav>
+    </header>
+
+    <main class="admin-container">
+        <div class="form-card">
+            <div class="form-header">
+                <i class="fas fa-user-shield"></i>
+                <h2>Nuevo Administrador</h2>
+                <p>Crea una cuenta con acceso al sistema</p>
+            </div>
+
+            <form action="{{ url_for('nuevoAdmin') }}" method="POST">
+    <div class="input-group">
+        <label>Nombre de Usuario</label>
+        <div class="input-field">
+            <i class="fas fa-user"></i>
+            <input type="text" name="nuevo_usuario" required>
+        </div>
+    </div>
+    <div class="input-group">
+        <label>Contraseña</label>
+        <div class="input-field">
+            <i class="fas fa-lock"></i>
+            <input type="password" name="nuevo_password" required>
+        </div>
+    </div>
+    <button type="submit" class="btn-submit">Registrar Administrador</button>
+</form>
+        </div>
+    </main>
+
+    <footer class="footer">
+        © 2026 TT A - 103. All rights reserved.
+    </footer>
+
+</body>
+</html>

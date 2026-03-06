@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='usuario.css') }}">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="logo"></div>
+        <nav class="menu">
+            <a href="{{ url_for('home') }}">Inicio</a>
+            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+        </nav>
+    </header>
+
+    <div class="main-container">
+        <div class="ficha-card">
+            <button class="btn-edit-float" onclick="openModal()">
+                <i class="fas fa-edit"></i> Editar Información
+            </button>
+
+            <div class="ficha-header">
+                <div class="profile-pic-container">
+                    {% if paciente and paciente.foto and paciente.foto != 'default_user.png' %}
+                        <img src="{{ url_for('static', filename='uploads/perfiles/' + paciente.foto) }}" class="user-img-preview">
+                    {% else %}
+                        <i class="fas fa-user-circle" style="font-size: 110px; color: #ccc;"></i>
+                    {% endif %}
+                </div>
+                <div class="profile-info">
+                    <label class="label-caps">Paciente</label>
+                    <h1 class="display-name">{{ paciente.nombre | default('Sin Nombre', true) }}</h1>
+                    <p class="subtitle">Ficha de Identificación</p>
+                </div>
+            </div>
+
+            <hr class="separator">
+
+            <div class="section-title">Datos Personales</div>
+            <div class="grid-row">
+                <div class="info-box"><label>Edad</label><p>{{ paciente.edad | default('-', true) }}</p></div>
+                <div class="info-box"><label>Sexo</label><p>{{ paciente.sexo | default('-', true) }}</p></div>
+            </div>
+            <div class="grid-row">
+                <div class="info-box"><label>Fecha de nacimiento</label><p>{{ paciente.fecha_nacimiento | default('-', true) }}</p></div>
+                <div class="info-box"><label>Nombre de la madre</label><p>{{ paciente.nombre_madre | default('-', true) }}</p></div>
+            </div>
+
+            <div class="section-title">Información Médica</div>
+            <div class="grid-row">
+                <div class="info-box"><label>Padecimiento</label><p>{{ paciente.enfermedades | default('-', true) }}</p></div>
+                <div class="info-box"><label>Intervenciones</label><p>{{ paciente.intervenciones | default('-', true) }}</p></div>
+            </div>
+
+            <div class="section-title">Encargados</div>
+            <div class="grid-row">
+                <div class="info-box"><label>Responsable directo</label><p>{{ paciente.responsable | default('-', true) }}</p></div>
+                <div class="info-box"><label>Supervisores</label><p>{{ paciente.supervisores | default('-', true) }}</p></div>
+            </div>
+
+            <div class="section-title">Contacto de Emergencia</div>
+            <div class="grid-row">
+                <div class="info-box"><label>Nombre del contacto</label><p>{{ paciente.contacto_emergencia_nom | default('-', true) }}</p></div>
+                <div class="info-box"><label>Teléfono</label><p>{{ paciente.telefono | default('-', true) }}</p></div>
+            </div>
+
+            <div class="section-title">Observaciones</div>
+            <div class="info-box full-width">
+                <p>{{ paciente.observaciones | default('Sin notas adicionales.', true) }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Ficha Médica</h2>
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+            </div>
+
+            <form action="{{ url_for('usuario') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+
+                    <div class="form-group-full">
+                        <label>Nombre Completo</label>
+                        <input type="text" name="nombre" value="{{ paciente.nombre if paciente.nombre else '' }}">
+                    </div>
+
+                    <div class="grid-row-modal">
+                        <div class="form-group"><label>Edad</label><input type="text" name="edad" value="{{ paciente.edad if paciente.edad else '' }}"></div>
+                        <div class="form-group">
+                            <label>Sexo</label>
+                            <select name="sexo">
+                                <option value="Masculino" {{ 'selected' if paciente.sexo == 'Masculino' }}>Masculino</option>
+                                <option value="Femenino" {{ 'selected' if paciente.sexo == 'Femenino' }}>Femenino</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid-row-modal">
+                        <div class="form-group"><label>Fecha Nacimiento</label><input type="date" name="fecha_nacimiento" value="{{ paciente.fecha_nacimiento if paciente.fecha_nacimiento else '' }}"></div>
+                        <div class="form-group"><label>Nombre de la Madre</label><input type="text" name="nombre_madre" value="{{ paciente.nombre_madre if paciente.nombre_madre else '' }}"></div>
+                    </div>
+
+                    <div class="grid-row-modal">
+                        <div class="form-group"><label>Padecimiento</label><input type="text" name="enfermedades" value="{{ paciente.enfermedades if paciente.enfermedades else '' }}"></div>
+                        <div class="form-group"><label>Intervenciones</label><input type="text" name="intervenciones" value="{{ paciente.intervenciones if paciente.intervenciones else '' }}"></div>
+                    </div>
+
+                    <div class="grid-row-modal">
+                        <div class="form-group"><label>Responsable</label><input type="text" name="responsable" value="{{ paciente.responsable if paciente.responsable else '' }}"></div>
+                        <div class="form-group"><label>Supervisores</label><input type="text" name="supervisores" value="{{ paciente.supervisores if paciente.supervisores else '' }}"></div>
+                    </div>
+
+                    <div class="grid-row-modal">
+                        <div class="form-group"><label>Contacto Emergencia</label><input type="text" name="contacto_emergencia_nom" value="{{ paciente.contacto_emergencia_nom if paciente.contacto_emergencia_nom else '' }}"></div>
+                        <div class="form-group"><label>Teléfono</label><input type="text" name="telefono" value="{{ paciente.telefono if paciente.telefono else '' }}"></div>
+                    </div>
+
+                    <div class="form-group-full">
+                        <label>Observaciones</label>
+                        <textarea name="observaciones" rows="3" placeholder="Notas adicionales del paciente...">{{ paciente.observaciones if paciente.observaciones else '' }}</textarea>
+                    </div>
+
+                    <div class="form-group-full" style="background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px dashed #ccc;">
+                        <label><i class="fas fa-camera"></i> Foto de Perfil</label>
+                        <input type="file" name="foto">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn-save">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal() { document.getElementById('editModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+    </script>
+
+<footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+</body>
+</html>
