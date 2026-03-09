@@ -16,18 +16,23 @@
 
     </div>
 
-   <nav class="menu">
+  <nav class="menu">
+    {% if session.get('can_manage') %}
     <div class="dropdown">
         <a href="#" class="dropbtn">Ajustes <i class="fas fa-caret-down"></i></a>
         <div class="dropdown-content">
-            <a href="{{ url_for('nuevoAdmin') }}"><i class="fas fa-user-plus"></i> Agregar Administrador</a>
-            <a href="#"><i class="fas fa-user-minus"></i> Eliminar Administrador</a>
+            <a href="{{ url_for('nuevoAdmin') }}">
+                <i class="fas fa-user-plus"></i> Agregar Administrador
+            </a>
+            <a href="{{ url_for('gestionar_admins') }}">
+                <i class="fas fa-user-minus"></i> Eliminar Administrador
+            </a>
         </div>
     </div>
+    {% endif %}
 
     <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
 </nav>
-
 </header>
 
 
@@ -42,7 +47,7 @@
             </div>
         </a>
 
-        <a href="#" class="card-link">
+        <a href="{{ url_for('modelo') }}" class="card-link">
             <div class="card">
                 <span class="icon"><i class="fas fa-brain"></i></span>
                 <h3>Modelo de IA</h3>
@@ -58,7 +63,7 @@
             </div>
         </a>
 
-        <a href="#" class="card-link">
+        <a href="{{ url_for('home') }}" class="card-link">
             <div class="card">
                 <span class="icon"><i class="fas fa-wave-square"></i></span>
                 <h3>Adquisición EMG</h3>

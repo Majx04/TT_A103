@@ -129,3 +129,23 @@ body {
     padding: 15px;
     font-size: 0.9rem;
 }
+.permissions-box {
+    background: #f8f9fa; padding: 15px; border-radius: 8px;
+    border: 1px solid #eee; margin-bottom: 25px; text-align: left;
+}
+.perm-title { font-weight: bold; color: #003b4a; display: block; margin-bottom: 10px; font-size: 0.9rem; }
+.check-container { display: block; margin-bottom: 10px; font-size: 0.85rem; color: #444; cursor: pointer; }
+.check-container input { margin-right: 10px; accent-color: #003b4a; }
+
+.btn-submit {
+    width: 100%; background: #003b4a; color: white; border: none;
+    padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer;
+}
+        .table-container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin: 20px auto; max-width: 1000px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        th { background-color: #f8f9fa; color: #003b4a; }
+        .perm-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 5px; }
+        .btn-update { background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-delete { background: #dc3545; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; }
+        .check-td { text-align: center; }

@@ -1,0 +1,73 @@
+body{
+font-family: Arial;
+margin:0;
+background:white;
+}
+
+.main-container{
+width:1100px;
+margin:auto;
+padding:20px;
+}
+
+/* Estado */
+
+#estado{
+font-size:18px;
+font-weight:bold;
+margin-bottom:15px;
+}
+
+.estado-activo{
+color:green;
+}
+
+.estado-pausado{
+color:red;
+}
+
+/* fila controles */
+
+.controls{
+display:flex;
+gap:10px;
+margin-bottom:10px;
+}
+
+/* input */
+
+input{
+padding:6px;
+width:220px;
+font-size:14px;
+}
+
+/* botones */
+
+button{
+padding:7px 14px;
+font-size:14px;
+cursor:pointer;
+}
+
+/* label carpeta */
+
+#carpeta{
+color:gray;
+margin-bottom:10px;
+}
+
+/* grafica */
+
+.chart-container{
+width:100%;
+height:450px;
+margin-bottom:10px;
+}
+
+/* botones inferiores */
+
+.bottom-buttons{
+display:flex;
+gap:10px;
+}

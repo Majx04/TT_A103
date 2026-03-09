@@ -1,0 +1,70 @@
+/* 1. Configuración Base */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif; /* Fuente más moderna */
+    background: #f4f7f6; /* Un gris más suave y profesional */
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/*2. Navegación Responsiva */
+.navbar {
+    background: #2c2c2c;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%; /* Padding porcentual para pantallas anchas */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.logo {
+    font-weight: bold;
+    font-size: 22px;
+    letter-spacing: 1px;
+}
+
+.menu a {
+    color: white;
+    text-decoration: none;
+    margin-left: 20px;
+    font-size: 15px;
+    transition: color 0.3s;
+}
+
+.menu a:hover {
+    color: #007bff; /* Cambio de color en lugar de subrayado */
+}
+
+/* 6. Footer siempre al fondo */
+.footer {
+    background: #003b4a;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    font-size: 0.9rem;
+}
+
+/* --- 7. MEDIA QUERIES (Ajustes para móviles) --- */
+
+@media (max-width: 600px) {
+    .navbar {
+        flex-direction: column;
+        gap: 15px;
+        padding: 20px;
+    }
+
+    .menu a {
+        margin: 0 10px;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr; /* Una sola columna en celulares */
+    }
+
+    .card {
+        padding: 2rem 1rem;
+    }
+}

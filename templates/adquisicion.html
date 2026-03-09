@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+<title>EMG Profesional</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/adquisicion.css') }}">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<div class="main-container">
+
+<h2>EMG Profesional</h2>
+
+<div id="estado" class="estado-activo">
+Adquisición activa
+</div>
+
+<div class="controls">
+
+<input id="nombre" placeholder="Nombre base (ej: sujeto1)">
+
+<button onclick="crearCarpeta()">
+Crear carpeta
+</button>
+
+<button onclick="seleccionarCarpeta()">
+Seleccionar carpeta
+</button>
+
+</div>
+
+<div id="carpeta">
+Carpeta actual: static/emg_data
+</div>
+
+<div class="chart-container">
+<canvas id="grafica"></canvas>
+</div>
+
+<div class="bottom-buttons">
+
+<button id="btnPausa" onclick="toggleEMG()">
+Pausar
+</button>
+
+<button id="btnGuardar" onclick="guardarEMG()" disabled>
+Guardar muestra
+</button>
+
+</div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/adquisicion.js') }}"></script>
+
+</body>
+</html>

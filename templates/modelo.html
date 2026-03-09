@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='modelo.css') }}">
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <div class="logo">
+
+    </div>
+
+   <nav class="menu">
+    {% if admin and admin.can_manage_admins %}
+    <div class="dropdown">
+        <a href="#" class="dropbtn">Ajustes <i class="fas fa-caret-down"></i></a>
+        <div class="dropdown-content">
+            <a href="{{ url_for('nuevoAdmin') }}">
+                <i class="fas fa-user-plus"></i> Agregar Administrador
+            </a>
+            <a href="{{ url_for('gestionar_admins') }}"><i class="fas fa-user-minus"></i> Eliminar Administrador</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+</nav>
+</header>
+<h2>Entrenamiento Random Forest</h2>
+
+<button onclick="entrenar()">Entrenar modelo</button>
+
+<h3>Métricas</h3>
+
+<ul>
+<li>Accuracy: <span id="accuracy">-</span></li>
+<li>Precision: <span id="precision">-</span></li>
+<li>Recall: <span id="recall">-</span></li>
+<li>F1 Score: <span id="f1">-</span></li>
+</ul>
+
+<h3>Matriz de Confusión</h3>
+
+<div id="matriz"></div>
+
+<script src="{{ url_for('static', filename='js/modelo.js') }}"></script>
+<footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='nuevoAdmin.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo"></div>
+        <nav class="menu">
+            <a href="{{ url_for('home') }}">Inicio</a>
+            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+        </nav>
+    </header>
+
+    <main class="admin-container" style="display: block;">
+        <div class="table-container">
+            <h2 style="color: #003b4a;"><i class="fas fa-users-cog"></i> Administradores del Sistema</h2>
+            <p>Base de datos de administradores.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th class="check-td">Gestionar Admins</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in admins %}
+                    <tr>
+                        <form action="{{ url_for('gestionar_admins', id=a.id) }}" method="POST">
+                            <td><strong>{{ a.username }}</strong></td>
+                            <td class="check-td">
+                                <input type="checkbox" name="p_admin" {% if a.can_manage_admins %}checked{% endif %}>
+                            </td>
+                            <td>
+                                <button type="submit" class="btn-update" title="Guardar Cambios">
+                                    <i class="fas fa-save"></i>
+                                </button>
+                                <a href="{{ url_for('eliminar_admin', id=a.id) }}"
+   class="btn-delete"
+   onclick="return confirm('¿Estás seguro?')">
+   <i class="fas fa-trash"></i>
+</a>
+                            </td>
+                        </form>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div style="margin-top: 20px;">
+                <a href="{{ url_for('nuevoAdmin') }}" class="btn-back" style="display: inline-block;">+ Agregar Nuevo</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">© 2026 TT A - 103. All rights reserved.</footer>
+</body>
+</html>
