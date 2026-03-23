@@ -1,64 +1,48 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-
-<meta charset="UTF-8">
-<title>EMG Profesional</title>
-
-<link rel="stylesheet" href="{{ url_for('static', filename='css/adquisicion.css') }}">
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='adquisicion.css') }}">
 </head>
 
 <body>
+    <header class="navbar">
+        <div class="logo"></div>
+        <nav class="menu">
+            <a href="{{ url_for('home') }}">Inicio</a>
+            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+        </nav>
+    </header>
 
-<div class="main-container">
+    <div class="container">
+        <main class="main">
+            <div class="top-row">
+                <div class="card card-status">
+                    <div id="estado" class="estado activo">
+                        ● Adquisición activa
+                    </div>
+                </div>
 
-<h2>EMG Profesional</h2>
+                <div class="card card-controls">
+                    <input type="text" id="nombre" placeholder="Nombre de muestra">
+                    <button class="btn-primary" onclick="toggle()">Pausar / Reanudar</button>
+                    <button class="btn-danger" onclick="guardar()">Guardar</button>
+                </div>
+            </div>
 
-<div id="estado" class="estado-activo">
-Adquisición activa
-</div>
+            <div class="card chart-container">
+                <canvas id="grafica"></canvas>
+            </div>
+        </main>
+    </div>
 
-<div class="controls">
+    <footer class="footer">
+        © 2026 TT A - 103. All rights reserved.
+    </footer>
 
-<input id="nombre" placeholder="Nombre base (ej: sujeto1)">
-
-<button onclick="crearCarpeta()">
-Crear carpeta
-</button>
-
-<button onclick="seleccionarCarpeta()">
-Seleccionar carpeta
-</button>
-
-</div>
-
-<div id="carpeta">
-Carpeta actual: static/emg_data
-</div>
-
-<div class="chart-container">
-<canvas id="grafica"></canvas>
-</div>
-
-<div class="bottom-buttons">
-
-<button id="btnPausa" onclick="toggleEMG()">
-Pausar
-</button>
-
-<button id="btnGuardar" onclick="guardarEMG()" disabled>
-Guardar muestra
-</button>
-
-</div>
-
-</div>
-
-<script src="{{ url_for('static', filename='js/adquisicion.js') }}"></script>
-
+    <script src="{{ url_for('static', filename='js/adquisicion.js') }}"></script>
 </body>
 </html>

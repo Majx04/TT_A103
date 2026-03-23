@@ -1,4 +1,10 @@
 import os
+import serial
+import threading
+import collections
+import numpy as np
+import csv
+import time
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -10,15 +16,22 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
+from scipy import signal
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
+# ========================
+# APP
+# ========================
 app = Flask(__name__)
 app.secret_key = "super_secret_key_123"
 
 modelo = None
 
-
-# ---------------- CONFIGURACIÓN ----------------
-
+# ========================
+# CONFIG
+# ========================
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'pacientes.db')
@@ -37,9 +50,72 @@ for folder in [
 
 db = SQLAlchemy(app)
 
+# ========================
+# EMG CONFIG
+# ========================
+PUERTO = 'COM3'
+BAUDRATE = 921600
 
-# ---------------- MODELOS DB ----------------
+try:
+    ser = serial.Serial(PUERTO, BAUDRATE, timeout=1)
+except:
+    ser = None
+    print("⚠️ Serial no disponible")
 
+FS = 1000
+VENTANA = 5
+MUESTRAS = FS * VENTANA
+
+VREF = 3.3
+ADC_MAX = 4095.0
+
+data_emg = collections.deque([0.0] * MUESTRAS, maxlen=MUESTRAS)
+
+F0 = 60.0
+Q = 30.0
+
+b_notch, a_notch = signal.iirnotch(F0, Q, FS)
+zi_notch = signal.lfilter_zi(b_notch, a_notch)
+
+pausado = False
+contador_muestras = 0
+carpeta_emg = os.path.join(BASE_DIR, "static", "emg")
+os.makedirs(carpeta_emg, exist_ok=True)
+
+# ========================
+# HILO SERIAL
+# ========================
+def leer_serial():
+    global zi_notch
+
+    if ser is None:
+        return
+
+    while True:
+        if pausado:
+            time.sleep(0.01)
+            continue
+
+        try:
+            linea = ser.readline().decode().strip()
+
+            if linea.isdigit():
+                adc = int(linea)
+                voltaje = adc * VREF / ADC_MAX
+
+                filtrado, zi_notch = signal.lfilter(
+                    b_notch, a_notch, [voltaje], zi=zi_notch
+                )
+
+                data_emg.append(filtrado[0])
+        except:
+            pass
+
+threading.Thread(target=leer_serial, daemon=True).start()
+
+# ========================
+# DB MODELS
+# ========================
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -67,24 +143,20 @@ class Paciente(db.Model):
 with app.app_context():
     db.create_all()
 
-
-# ---------------- UTILIDADES ----------------
-
+# ========================
+# UTIL
+# ========================
 def login_required():
-    if "usuario" not in session:
-        return False
-    return True
+    return "usuario" in session
 
-
-# ---------------- RUTAS ----------------
-
+# ========================
+# RUTAS
+# ========================
 @app.route("/")
 def index():
     return redirect(url_for("login"))
 
-
 # ---------- LOGIN ----------
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -93,67 +165,49 @@ def login():
 
         admin = Admin.query.filter_by(username=user_input).first()
 
-        # Caso 1: Administrador de la Base de Datos
         if admin and check_password_hash(admin.password, pass_input):
             session["usuario"] = user_input
-            # Guardamos si este admin específico tiene permisos de gestión
             session["can_manage"] = admin.can_manage_admins
             return redirect(url_for("home"))
 
-        # Caso 2: Super Administrador "Hardcodeado"
         elif user_input == "admin" and pass_input == "1234":
             session["usuario"] = user_input
-            session["can_manage"] = True  # El admin maestro siempre puede gestionar
+            session["can_manage"] = True
             return redirect(url_for("home"))
 
         return render_template("login.html", error="Credenciales incorrectas")
 
     return render_template("login.html")
 
-
 # ---------- HOME ----------
-
 @app.route("/home")
 def home():
-
     if not login_required():
         return redirect(url_for("login"))
 
     admin_actual = Admin.query.filter_by(username=session["usuario"]).first()
-
     return render_template("home.html", admin=admin_actual)
 
-
 # ---------- LOGOUT ----------
-
 @app.route("/logout")
 def logout():
-
     session.pop("usuario", None)
-
     return redirect(url_for("login"))
 
-
-# ---------- PACIENTE ----------
-
-from werkzeug.utils import secure_filename
-
+# ---------- USUARIO ----------
 @app.route("/usuario", methods=["GET", "POST"])
 def usuario():
     if not login_required():
         return redirect(url_for("login"))
 
-    # Intentamos obtener el paciente
     paciente = Paciente.query.first()
 
-    # SI NO EXISTE, LO CREAMOS (Solución al AttributeError)
     if not paciente:
         paciente = Paciente(nombre="Nuevo Paciente")
         db.session.add(paciente)
         db.session.commit()
 
     if request.method == "POST":
-        # Capturamos los datos del formulario
         paciente.nombre = request.form.get("nombre")
         paciente.edad = request.form.get("edad")
         paciente.sexo = request.form.get("sexo")
@@ -167,10 +221,8 @@ def usuario():
         paciente.telefono = request.form.get("telefono")
         paciente.observaciones = request.form.get("observaciones")
 
-        # Manejo de la Foto
         file = request.files.get("foto")
         if file and file.filename != '':
-            from werkzeug.utils import secure_filename
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             paciente.foto = filename
@@ -181,47 +233,38 @@ def usuario():
 
     return render_template("usuario.html", paciente=paciente)
 
-
-# ---------- ADMIN NUEVO ----------
-
+# ---------- NUEVO ADMIN ----------
 @app.route("/nuevoAdmin", methods=["GET", "POST"])
 def nuevoAdmin():
-    # 1. Verificar si está logueado
     if not login_required():
         return redirect(url_for("login"))
 
-    # 2. Verificar permisos desde la sesión (permite entrar al usuario "admin" 1234)
     if not session.get("can_manage"):
-        flash("Permisos insuficientes para crear administradores.")
+        flash("Permisos insuficientes")
         return redirect(url_for("home"))
 
     if request.method == "POST":
         user = request.form.get("nuevo_usuario")
         password = request.form.get("nuevo_password")
-        # El checkbox devuelve 'on' si está marcado, lo convertimos a Booleano
         p_admin = True if request.form.get("perm_admin") == "on" else False
 
-        # Validar si ya existe
         if Admin.query.filter_by(username=user).first():
-            flash("Error: El nombre de usuario ya está registrado.")
+            flash("Usuario ya existe")
         else:
-            hashed_pw = generate_password_hash(password)
             nuevo = Admin(
                 username=user,
-                password=hashed_pw,
+                password=generate_password_hash(password),
                 can_manage_admins=p_admin
             )
             db.session.add(nuevo)
             db.session.commit()
-            flash(f"Administrador '{user}' creado con éxito.")
+            flash("Administrador creado")
             return redirect(url_for("gestionar_admins"))
 
     return render_template("nuevoAdmin.html")
 
-
-# ---------- GESTIÓN ADMINS ----------
-
-@app.route("/gestionar_admins", methods=["GET", "POST"]) # Agregamos POST
+# ---------- GESTION ADMINS ----------
+@app.route("/gestionar_admins", methods=["GET", "POST"])
 def gestionar_admins():
     if not login_required():
         return redirect(url_for("login"))
@@ -229,110 +272,123 @@ def gestionar_admins():
     if not session.get("can_manage"):
         return redirect(url_for("home"))
 
-    # --- LÓGICA PARA ACTUALIZAR AL PRESIONAR GUARDAR ---
     if request.method == "POST":
-        admin_id = request.args.get('id') # Obtenemos el ID del admin desde la URL
+        admin_id = request.args.get('id')
         if admin_id:
-            admin_a_editar = Admin.query.get(admin_id)
-            if admin_a_editar:
-                # Si el checkbox está marcado llega como "on", si no, llega como None
-                nuevo_permiso = True if request.form.get("p_admin") == "on" else False
-                admin_a_editar.can_manage_admins = nuevo_permiso
+            admin = Admin.query.get(admin_id)
+            if admin:
+                admin.can_manage_admins = True if request.form.get("p_admin") == "on" else False
                 db.session.commit()
-                flash(f"Permisos de {admin_a_editar.username} actualizados.")
-            return redirect(url_for("gestionar_admins"))
+                flash("Permisos actualizados")
 
-    # --- LÓGICA PARA MOSTRAR LA TABLA (GET) ---
     admins = Admin.query.all()
     return render_template("gestionar_admins.html", admins=admins)
 
+# ---------- ELIMINAR ADMIN ----------
 @app.route("/eliminar_admin/<int:id>")
 def eliminar_admin(id):
     if not login_required():
         return redirect(url_for("login"))
 
-    # 1. Verificar que quien intenta borrar sea un administrador autorizado
     if not session.get("can_manage"):
-        flash("No tienes permisos para realizar esta acción.")
         return redirect(url_for("home"))
 
-    # 2. Buscar el administrador a eliminar
-    admin_a_eliminar = Admin.query.get_or_404(id)
+    admin = Admin.query.get_or_404(id)
 
-    # 3. Evitar que un administrador de la DB se borre a sí mismo
-    if admin_a_eliminar.username == session.get("usuario"):
-        flash("No puedes eliminar tu propia cuenta de la base de datos.")
+    if admin.username == session.get("usuario"):
+        flash("No puedes eliminarte a ti mismo")
         return redirect(url_for("gestionar_admins"))
 
-    # 4. Ejecutar el borrado
-    try:
-        db.session.delete(admin_a_eliminar)
-        db.session.commit()
-        flash(f"Administrador '{admin_a_eliminar.username}' eliminado con éxito.")
-    except Exception as e:
-        db.session.rollback() # Si algo falla, deshacemos el cambio
-        flash("Error al eliminar el administrador.")
-        print(f"Error: {e}")
+    db.session.delete(admin)
+    db.session.commit()
+    flash("Administrador eliminado")
 
     return redirect(url_for("gestionar_admins"))
 
-
-# ---------- MODELO IA ----------
-
-@app.route("/modelo")
-def modelo():
-
+# ---------- EMG ----------
+@app.route("/emg")
+def emg():
     if not login_required():
         return redirect(url_for("login"))
+    return render_template("adquisicion.html")
 
-    return render_template("modelo.html")
+@app.route("/emg/data")
+def emg_data():
+    return jsonify(list(data_emg))
 
+@app.route("/emg/toggle", methods=["POST"])
+def emg_toggle():
+    global pausado
+    pausado = not pausado
+    return jsonify({"pausado": pausado})
 
-# ---------- ENTRENAMIENTO RANDOM FOREST ----------
+@app.route("/emg/guardar", methods=["POST"])
+def emg_guardar():
+    global contador_muestras
 
-@app.route("/entrenar", methods=["GET","POST"])
+    if not pausado:
+        return jsonify({"error": "Debes pausar antes de guardar"})
+
+    nombre = request.form.get("nombre")
+    if not nombre:
+        return jsonify({"error": "Nombre vacío"})
+
+    contador_muestras += 1
+    nombre_final = f"{nombre}_{contador_muestras}"
+
+    ventana = list(data_emg)
+
+    ruta_csv = os.path.join(carpeta_emg, f"{nombre_final}.csv")
+    ruta_png = os.path.join(carpeta_emg, f"{nombre_final}.png")
+
+    with open(ruta_csv, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["indice", "voltaje"])
+        for i, v in enumerate(ventana):
+            writer.writerow([i, v])
+
+    plt.figure()
+    plt.plot(ventana)
+    plt.ylim(0, 4)
+    plt.title("EMG")
+    plt.savefig(ruta_png)
+    plt.close()
+
+    return jsonify({"ok": nombre_final})
+
+# ---------- IA ----------
+@app.route("/entrenar")
 def entrenar():
-
     global modelo
 
     data = load_iris()
-
     X = data.data
     y = data.target
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=0.3,
-        random_state=42
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-    modelo = RandomForestClassifier(
-        n_estimators=100,
-        max_depth=5,
-        random_state=42
-    )
-
+    modelo = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
     modelo.fit(X_train, y_train)
 
     pred = modelo.predict(X_test)
 
-    accuracy = accuracy_score(y_test, pred)
-    precision = precision_score(y_test, pred, average="macro")
-    recall = recall_score(y_test, pred, average="macro")
-    f1 = f1_score(y_test, pred, average="macro")
-
-    cm = confusion_matrix(y_test, pred)
-
     return jsonify({
-        "accuracy": float(accuracy),
-        "precision": float(precision),
-        "recall": float(recall),
-        "f1": float(f1),
-        "confusion_matrix": cm.tolist()
+        "accuracy": float(accuracy_score(y_test, pred)),
+        "precision": float(precision_score(y_test, pred, average="macro")),
+        "recall": float(recall_score(y_test, pred, average="macro")),
+        "f1": float(f1_score(y_test, pred, average="macro")),
+        "confusion_matrix": confusion_matrix(y_test, pred).tolist()
     })
 
+# ---------- MODELO IA ----------
+@app.route("/modelo")
+def modelo():
+    if not login_required():
+        return redirect(url_for("login"))
 
-# ---------------- MAIN ----------------
-
+    return render_template("modelo.html")
+# ========================
+# MAIN
+# ========================
 if __name__ == "__main__":
     app.run(debug=True)

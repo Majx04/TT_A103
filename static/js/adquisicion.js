@@ -1,145 +1,104 @@
-let pausado=false;
+let pausado = false;
+const ctx = document.getElementById("grafica").getContext("2d");
 
-const ctx=document.getElementById("grafica").getContext("2d");
-
-const chart=new Chart(ctx,{
-type:"line",
-data:{
-labels:[],
-datasets:[{
-label:"",
-data:[],
-borderWidth:1,
-pointRadius:0
-}]
-},
-options:{
-animation:false,
-responsive:true,
-maintainAspectRatio:false,
-scales:{
-y:{
-title:{
-display:true,
-text:"Voltaje (V)"
-}
-},
-x:{
-title:{
-display:true,
-text:"Muestras"
-}
-}
-}
-}
+// Inicialización de la gráfica
+const chart = new Chart(ctx, {
+    type: "line",
+    data: {
+        labels: [],
+        datasets: [{
+            label: "Señal EMG",
+            data: [],
+            borderColor: "#5b8fb9",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false
+        }]
+    },
+    options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { title: { display: true, text: "Voltaje (V)" } },
+            x: { title: { display: true, text: "Muestras" }, ticks: { display: false } }
+        }
+    }
 });
 
-function actualizar(){
+// Función para obtener datos
+function actualizar() {
+    if (pausado) return; // No hace fetch si está pausado
 
-fetch("/datos_emg")
-.then(r=>r.json())
-.then(data=>{
+    fetch("/datos_emg")
+        .then(r => r.json())
+        .then(data => {
+            if (data.length > 0) {
+                chart.data.labels = data.map((_, i) => i);
+                chart.data.datasets[0].data = data;
 
-chart.data.labels=data.map((_,i)=>i);
-chart.data.datasets[0].data=data;
+                // Auto-escala simple
+                const min = Math.min(...data);
+                const max = Math.max(...data);
+                chart.options.scales.y.min = min - 0.1;
+                chart.options.scales.y.max = max + 0.1;
 
-/* ajuste dinámico del eje Y */
-
-let min=Math.min(...data);
-let max=Math.max(...data);
-
-chart.options.scales.y.min=min-0.1;
-chart.options.scales.y.max=max+0.1;
-
-chart.update();
-
-});
-
+                chart.update('none'); // Update sin animaciones para fluidez
+            }
+        })
+        .catch(err => console.error("Error obteniendo datos:", err));
 }
 
-setInterval(actualizar,50);
+// Ejecutar cada 50ms
+setInterval(actualizar, 50);
 
+// Función Pausar / Reanudar
+function toggleEMG() {
+    fetch("/toggle_emg", { method: "POST" })
+        .then(r => r.json())
+        .then(data => {
+            pausado = data.pausado;
+            const estado = document.getElementById("estado");
+            const btn = document.getElementById("btnPausa");
+            const btnGuardar = document.getElementById("btnGuardar");
 
-/* pausa */
-
-function toggleEMG(){
-
-fetch("/toggle_emg",{method:"POST"})
-.then(r=>r.json())
-.then(data=>{
-
-pausado=data.pausado;
-
-let estado=document.getElementById("estado");
-let btn=document.getElementById("btnPausa");
-let guardar=document.getElementById("btnGuardar");
-
-if(pausado){
-
-estado.innerText="PAUSADO";
-estado.className="estado-pausado";
-
-btn.innerText="Reanudar";
-
-guardar.disabled=false;
-
-}else{
-
-estado.innerText="Adquisición activa";
-estado.className="estado-activo";
-
-btn.innerText="Pausar";
-
-guardar.disabled=true;
-
+            if (pausado) {
+                estado.innerText = "● Adquisición Detenida";
+                estado.className = "estado pausado";
+                btn.innerText = "Reanudar";
+                btnGuardar.disabled = false;
+            } else {
+                estado.innerText = "● Adquisición activa";
+                estado.className = "estado activo";
+                btn.innerText = "Pausar";
+                btnGuardar.disabled = true;
+            }
+        });
 }
 
-});
+// Función Guardar
+function guardarEMG() {
+    const nombreInput = document.getElementById("nombre");
+    const nombre = nombreInput.value.trim();
 
-}
+    if (!nombre) {
+        alert("Por favor, ingresa un nombre para la muestra.");
+        return;
+    }
 
-
-/* guardar */
-
-function guardarEMG(){
-
-let nombre=document.getElementById("nombre").value;
-
-fetch("/guardar_emg",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({nombre:nombre})
-
-})
-.then(r=>r.json())
-.then(data=>{
-
-if(data.error){
-
-alert(data.error);
-
-}else{
-
-alert("Archivo guardado como: "+data.ok);
-
-}
-
-});
-
-}
-
-
-/* dummy */
-
-function crearCarpeta(){
-alert("La carpeta se define en el servidor Flask");
-}
-
-function seleccionarCarpeta(){
-alert("La carpeta se define en el servidor Flask");
+    fetch("/guardar_emg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: nombre })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) {
+            alert("Error: " + data.error);
+        } else {
+            alert("Éxito: Archivo guardado como " + data.ok);
+            nombreInput.value = ""; // Limpiar input
+        }
+    })
+    .catch(err => alert("Error al conectar con el servidor"));
 }
