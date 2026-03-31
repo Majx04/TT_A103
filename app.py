@@ -386,7 +386,9 @@ def modelo():
     if not login_required():
         return redirect(url_for("login"))
 
-    return render_template("modelo.html")
+    return render_template("vistaModelo.html")
+
+
 # ========================
 # MAIN
 # ========================
