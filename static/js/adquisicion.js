@@ -1,18 +1,19 @@
 let pausado = false;
 const ctx = document.getElementById("grafica").getContext("2d");
 
-// Inicialización de la gráfica
+// 1. Inicialización de la gráfica
 const chart = new Chart(ctx, {
     type: "line",
     data: {
         labels: [],
         datasets: [{
-            label: "Señal EMG",
+            label: "Señal EMG (Voltaje)",
             data: [],
             borderColor: "#5b8fb9",
             borderWidth: 1.5,
             pointRadius: 0,
-            fill: false
+            fill: false,
+            tension: 0.1
         }]
     },
     options: {
@@ -20,41 +21,37 @@ const chart = new Chart(ctx, {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-            y: { title: { display: true, text: "Voltaje (V)" } },
-            x: { title: { display: true, text: "Muestras" }, ticks: { display: false } }
+            y: {
+                min: 0,
+                max: 3.5, // Ajustado al VREF de 3.3V de tu Python
+                title: { display: true, text: "Voltaje (V)" }
+            },
+            x: { ticks: { display: false } }
         }
     }
 });
 
-// Función para obtener datos
+// 2. Función para obtener datos (Ruta corregida a /emg/data)
 function actualizar() {
-    if (pausado) return; // No hace fetch si está pausado
+    if (pausado) return;
 
-    fetch("/datos_emg")
+    fetch("/emg/data") // <--- CAMBIO AQUÍ
         .then(r => r.json())
         .then(data => {
-            if (data.length > 0) {
+            if (Array.isArray(data) && data.length > 0) {
                 chart.data.labels = data.map((_, i) => i);
                 chart.data.datasets[0].data = data;
-
-                // Auto-escala simple
-                const min = Math.min(...data);
-                const max = Math.max(...data);
-                chart.options.scales.y.min = min - 0.1;
-                chart.options.scales.y.max = max + 0.1;
-
-                chart.update('none'); // Update sin animaciones para fluidez
+                chart.update('none');
             }
         })
         .catch(err => console.error("Error obteniendo datos:", err));
 }
 
-// Ejecutar cada 50ms
 setInterval(actualizar, 50);
 
-// Función Pausar / Reanudar
+// 3. Función Pausar / Reanudar (Ruta corregida a /emg/toggle)
 function toggleEMG() {
-    fetch("/toggle_emg", { method: "POST" })
+    fetch("/emg/toggle", { method: "POST" }) // <--- CAMBIO AQUÍ
         .then(r => r.json())
         .then(data => {
             pausado = data.pausado;
@@ -76,28 +73,31 @@ function toggleEMG() {
         });
 }
 
-// Función Guardar
+// 4. Función Guardar (Ruta corregida a /emg/guardar)
 function guardarEMG() {
     const nombreInput = document.getElementById("nombre");
     const nombre = nombreInput.value.trim();
 
     if (!nombre) {
-        alert("Por favor, ingresa un nombre para la muestra.");
+        alert("Por favor, ingresa un nombre.");
         return;
     }
 
-    fetch("/guardar_emg", {
+    // Tu Python usa request.form.get("nombre"), así que enviamos FormData
+    const formData = new FormData();
+    formData.append("nombre", nombre);
+
+    fetch("/emg/guardar", { // <--- CAMBIO AQUÍ
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombre })
+        body: formData
     })
     .then(r => r.json())
     .then(data => {
-        if (data.error) {
-            alert("Error: " + data.error);
+        if (data.ok) {
+            alert("Guardado como: " + data.ok);
+            nombreInput.value = "";
         } else {
-            alert("Éxito: Archivo guardado como " + data.ok);
-            nombreInput.value = ""; // Limpiar input
+            alert("Error: " + data.error);
         }
     })
     .catch(err => alert("Error al conectar con el servidor"));
