@@ -1,0 +1,124 @@
+/* 1. Configuración Base */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    display: flex;
+    flex-direction: column; /* Organiza Navbar, Main y Footer en columna */
+    min-height: 100vh; /* Asegura que ocupe el 100% de la altura de la ventana */
+}
+
+/* 2. Navegación */
+.navbar {
+    background: #2c2c2c;
+    color: white;
+    display: flex;
+    justify-content: right; /* Centra los elementos del menú como en tu imagen */
+    align-items: center;
+    padding: 15px 5%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.menu a {
+    color: white;
+    text-decoration: none;
+    margin: 0 15px;
+    font-size: 15px;
+    transition: color 0.3s;
+}
+
+.menu a:hover {
+    color: #007bff;
+}
+
+/* 3. Contenedor Principal (El cambio clave) */
+main {
+    flex: 1; /* Esto hace que el contenido crezca y empuje al footer al fondo */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.container {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    text-align: center;
+    width: 100%; /* Ocupa el ancho disponible... */
+    max-width: 800px; /* ...pero hasta un límite profesional para que no se estire infinito */
+}
+
+/* 4. Elementos del Formulario */
+h2 { color: #1a73e8; margin-bottom: 20px; font-size: 2rem; }
+
+input[type="file"] {
+    margin: 30px auto;
+    display: block;
+    width: 80%; /* Un poco más ancho para que luzca en pantalla grande */
+}
+
+button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    padding: 15px 35px; /* Botón más grande */
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background-color: #1557b0;
+}
+
+/* 5. Footer */
+.footer {
+    background: #003b4a;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    font-size: 0.9rem;
+}
+
+/* 1. Contenedor para centrar todo */
+.input-contenedor-limpio {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 30px 0;
+    width: 100%;
+}
+
+/* 2. Ocultamos el input real (y su texto de "no se seleccionó") */
+#file-upload {
+    display: none;
+}
+
+/* 3. Estilizamos el Label para que parezca el botón de selección */
+.boton-archivo-personalizado {
+    display: inline-block;
+    padding: 12px 24px;
+    cursor: pointer;
+    background-color: #f8f9fa;
+    color: #555;
+    border: 2px dashed #cbd5e0;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.boton-archivo-personalizado:hover {
+    background-color: #edf2ff;
+    border-color: #1a73e8;
+    color: #1a73e8;
+    transform: translateY(-2px);
+}
+
+/* Opcional: un efecto visual cuando ya se seleccionaron archivos */
+.boton-archivo-personalizado:active {
+    transform: scale(0.98);
+}

@@ -5,6 +5,9 @@ import collections
 import numpy as np
 import csv
 import time
+import pandas as pd
+from io import BytesIO, StringIO
+from flask import send_file
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -389,6 +392,61 @@ def modelo():
     return render_template("vistaModelo.html")
 
 
+@app.route("/unificador")
+def unificador_vista():
+    if not login_required():
+        return redirect(url_for("login"))
+    return render_template("csv.html")
+
+@app.route("/unir", methods=["GET", "POST"])
+def csv():
+    # 1. Verificación de sesión (seguridad)
+    if not login_required():
+        return redirect(url_for("login"))
+
+    # 2. Si el usuario presiona el botón "Combinar" (POST)
+    if request.method == "POST":
+        archivos = request.files.getlist("archivos")
+
+        if not archivos or archivos[0].filename == '':
+            flash("No seleccionaste ningún archivo.")
+            return redirect(request.url)
+
+        lista_dataframes = []
+
+        try:
+            for archivo in archivos:
+                if archivo.filename.endswith('.csv'):
+                    # Leer cada archivo CSV
+                    df = pd.read_csv(archivo)
+                    lista_dataframes.append(df)
+
+            if not lista_dataframes:
+                flash("Ninguno de los archivos seleccionados es un CSV válido.")
+                return redirect(request.url)
+
+            # Unir todos los DataFrames
+            resultado = pd.concat(lista_dataframes, ignore_index=True)
+
+            # Crear el archivo en memoria para la descarga
+            buffer = BytesIO()
+            resultado_csv = resultado.to_csv(index=False, encoding='utf-8')
+            buffer.write(resultado_csv.encode())
+            buffer.seek(0)
+
+            return send_file(
+                buffer,
+                as_attachment=True,
+                download_name="csv_unificado.csv",
+                mimetype="text/csv"
+            )
+
+        except Exception as e:
+            flash(f"Error procesando los archivos: {str(e)}")
+            return redirect(request.url)
+
+    # 3. Si el usuario solo entra a la URL (GET)
+    return render_template("csv.html")
 # ========================
 # MAIN
 # ========================
