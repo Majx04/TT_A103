@@ -1,56 +1,279 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
     <title>TT A-103</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <link rel="stylesheet" href="{{ url_for('static', filename='adquisicion.css') }}">
 </head>
 
 <body>
-    <header class="navbar">
-        <div class="logo"><strong></strong></div>
-        <nav class="menu">
-            <a href="{{ url_for('home') }}">Inicio</a>
-            <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
-        </nav>
-    </header>
 
-    <div class="container">
-        <main class="main">
-            <div class="top-row">
-                <div class="card card-status">
-                    <div id="estado" class="estado activo">
-                        ● Adquisición activa
-                    </div>
-                </div>
+<!-- ── NAVBAR (mismo que home) ── -->
+<header class="navbar">
+    <div class="logo"></div>
+    <nav class="menu">
+        <a href="{{ url_for('home') }}">Inicio</a>
+        <a href="{{ url_for('historial') }}">Historial</a>
+        <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    </nav>
+</header>
 
-                <div class="card card-controls">
-                    <input type="text" id="nombre" placeholder="Nombre de muestra">
+<!-- ── CONTENIDO ── -->
+<main class="emg-main">
 
-                    <button id="btnPausa" class="btn-primary" onclick="toggleEMG()">
-                        Pausar
-                    </button>
-
-                    <button id="btnGuardar" class="btn-danger" onclick="guardarEMG()" disabled>
-                        Guardar
-                    </button>
-                </div>
-            </div>
-
-            <div class="card chart-container">
-                <canvas id="grafica"></canvas>
-            </div>
-        </main>
+    <!-- Header row -->
+    <div class="emg-header">
+        <span class="emg-title"><i class="fas fa-wave-square"></i> &nbsp;Adquisición EMG</span>
+        <div class="estado-badge">
+            <div class="estado-dot" id="estadoDot"></div>
+            <span id="estadoTexto">Adquisición activa</span>
+        </div>
     </div>
 
-    <footer class="footer">
-        © 2026 TT A - 103. Todos los derechos reservados.
-    </footer>
+    <!-- Grid principal -->
+    <div class="emg-grid">
 
-    <script src="{{ url_for('static', filename='js/adquisicion.js') }}"></script>
+        <!-- Gráfica -->
+        <div class="panel chart-panel">
+            <p class="panel-title">Señal EMG en tiempo real</p>
+            <div class="chart-wrap">
+                <canvas id="emgCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+
+            <!-- Clasificación -->
+            <div class="panel">
+                <p class="panel-title">Clasificación en tiempo real</p>
+                <div class="clf-etiqueta" id="clfEtiqueta">—</div>
+                <div class="clf-confianza" id="clfConfianza">Confianza: —</div>
+                <div class="conf-bar-wrap">
+                    <div class="conf-bar" id="confBar"></div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="panel">
+                <p class="panel-title">Estadísticas</p>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Máx (V)</div>
+                        <div class="stat-value" id="statMax">—</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Mín (V)</div>
+                        <div class="stat-value" id="statMin">—</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">RMS (V)</div>
+                        <div class="stat-value" id="statRms">—</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">MAV (V)</div>
+                        <div class="stat-value" id="statMav">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controles -->
+            <div class="panel controls-panel">
+                <p class="panel-title">Controles</p>
+                <div class="input-row">
+                    <input class="emg-input" id="nombreInput" type="text" placeholder="Nombre base (ej: sujeto1)">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-pause" id="btnPausa" onclick="togglePausa()">
+                        <i class="fas fa-pause" id="pausaIcon"></i>
+                        <span id="pausaTexto">Pausar</span>
+                    </button>
+                    <button class="btn btn-save" id="btnGuardar" onclick="guardarMuestra()" disabled>
+                        <i class="fas fa-save"></i> Guardar muestra
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── ESTADO ──────────────────────────────────────────────
+let pausado    = false;
+let chartData  = new Array(5000).fill(0);
+const MUESTRAS = 5000;
+
+// Paleta por clase (igual que el clasificador PyTorch)
+const PALETA = ["#00e5ff","#ff4081","#69f0ae","#ffea00","#ff6d00","#d500f9","#00b0ff","#76ff03"];
+let clases = [];
+
+// ── CANVAS ──────────────────────────────────────────────
+const canvas = document.getElementById("emgCanvas");
+const ctx    = canvas.getContext("2d");
+
+function resizeCanvas() {
+    canvas.width  = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight || 300;
+}
+
+window.addEventListener("resize", () => { resizeCanvas(); drawChart(); });
+resizeCanvas();
+
+function drawChart() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // Fondo
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid horizontal
+    ctx.strokeStyle = "#21262d";
+    ctx.lineWidth   = 0.8;
+    for (let i = 0; i <= 4; i++) {
+        const y = H - (i / 4) * H;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+    }
+
+    // Señal
+    if (chartData.length === 0) return;
+    ctx.strokeStyle = "#00e5ff";
+    ctx.lineWidth   = 1.2;
+    ctx.beginPath();
+    const step = W / (chartData.length - 1);
+    for (let i = 0; i < chartData.length; i++) {
+        const x = i * step;
+        const y = H - (chartData[i] / 3.3) * H;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+}
+
+// ── FETCH DATA ──────────────────────────────────────────
+async function fetchData() {
+    if (pausado) return;
+    try {
+        const r = await fetch("/emg/data");
+        chartData = await r.json();
+
+        drawChart();
+
+        // Stats
+        const max = Math.max(...chartData);
+        const min = Math.min(...chartData);
+        const rms = Math.sqrt(chartData.reduce((s, v) => s + v * v, 0) / chartData.length);
+        const mav = chartData.reduce((s, v) => s + Math.abs(v), 0) / chartData.length;
+
+        document.getElementById("statMax").textContent = max.toFixed(3);
+        document.getElementById("statMin").textContent = min.toFixed(3);
+        document.getElementById("statRms").textContent = rms.toFixed(3);
+        document.getElementById("statMav").textContent = mav.toFixed(3);
+    } catch(e) {}
+}
+
+// ── CLASIFICACIÓN ────────────────────────────────────────
+async function fetchClasificacion() {
+    try {
+        const r = await fetch("/emg/clasificacion");
+        if (!r.ok) return;
+        const d = await r.json();
+
+        const etiqueta  = d.etiqueta  || "—";
+        const confianza = d.confianza || 0;
+
+        document.getElementById("clfEtiqueta").textContent  = etiqueta;
+        document.getElementById("clfConfianza").textContent = `Confianza: ${(confianza * 100).toFixed(1)}%`;
+        document.getElementById("confBar").style.width      = `${(confianza * 100).toFixed(1)}%`;
+
+        // Color por clase
+        if (!clases.length) {
+            try {
+                const cr = await fetch("/emg/clases");
+                clases = (await cr.json()).clases || [];
+            } catch(e) {}
+        }
+        const idx   = clases.indexOf(etiqueta);
+        const color = idx >= 0 ? PALETA[idx % PALETA.length] : "#00e5ff";
+        document.getElementById("clfEtiqueta").style.color = color;
+        document.getElementById("confBar").style.background = color;
+
+    } catch(e) {}
+}
+
+// ── PAUSA ────────────────────────────────────────────────
+async function togglePausa() {
+    try {
+        const r = await fetch("/emg/toggle", { method: "POST" });
+        const d = await r.json();
+        pausado = d.pausado;
+
+        const dot     = document.getElementById("estadoDot");
+        const texto   = document.getElementById("estadoTexto");
+        const icon    = document.getElementById("pausaIcon");
+        const btnTxt  = document.getElementById("pausaTexto");
+        const btnSave = document.getElementById("btnGuardar");
+
+        if (pausado) {
+            dot.classList.add("pausado");
+            texto.textContent   = "PAUSADO";
+            icon.className      = "fas fa-play";
+            btnTxt.textContent  = "Reanudar";
+            btnSave.disabled    = false;
+        } else {
+            dot.classList.remove("pausado");
+            texto.textContent   = "Adquisición activa";
+            icon.className      = "fas fa-pause";
+            btnTxt.textContent  = "Pausar";
+            btnSave.disabled    = true;
+        }
+    } catch(e) { showToast("Error al cambiar estado", "err"); }
+}
+
+// ── GUARDAR ──────────────────────────────────────────────
+async function guardarMuestra() {
+    const nombre = document.getElementById("nombreInput").value.trim();
+    if (!nombre) { showToast("Escribe un nombre base", "err"); return; }
+
+    const form = new FormData();
+    form.append("nombre", nombre);
+
+    try {
+        const r = await fetch("/emg/guardar", { method: "POST", body: form });
+        const d = await r.json();
+        if (d.ok)    showToast(`✔ Guardado: ${d.ok}`, "ok");
+        else         showToast(`✖ ${d.error}`, "err");
+    } catch(e) { showToast("Error al guardar", "err"); }
+}
+
+// ── TOAST ────────────────────────────────────────────────
+function showToast(msg, type = "ok") {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className   = `show ${type}`;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.className = ""; }, 3200);
+}
+
+// ── LOOPS ────────────────────────────────────────────────
+setInterval(fetchData,          50);
+setInterval(fetchClasificacion, 500);
+
+// Dibujo inicial
+drawChart();
+</script>
+
 </body>
 </html>

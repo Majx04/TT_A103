@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='historial.css') }}">
+</head>
+
+<body>
+
+<!-- ── NAVBAR ── -->
+<header class="navbar">
+    <div class="logo"></div>
+    <nav class="menu">
+        <a href="{{ url_for('home') }}">Inicio</a>
+        <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    </nav>
+</header>
+
+<!-- ── CONTENIDO ── -->
+<main class="historial-main">
+
+    <div class="hist-header">
+        <div class="hist-title">
+            <i class="fas fa-history"></i>
+            Historial de muestras
+            <span class="hist-count" id="contadorVisible"></span>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filtros">
+        <label>Mostrar:</label>
+        <button class="filter-btn active" data-filtro="todos">
+            <i class="fas fa-list"></i> Todos
+        </button>
+        <button class="filter-btn" data-filtro="png">
+            <i class="fas fa-image"></i> Imágenes
+        </button>
+        <button class="filter-btn" data-filtro="csv">
+            <i class="fas fa-file-csv"></i> CSV
+        </button>
+
+        <div class="search-wrap">
+            <i class="fas fa-search"></i>
+            <input class="search-input" id="buscador" type="text"
+                   placeholder="Buscar por nombre…">
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-wrap">
+        <table id="tablaHistorial">
+            <thead>
+                <tr>
+                    <th>Archivo</th>
+                    <th>Tipo</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="cuerpoTabla">
+                {% if archivos %}
+                    {% for a in archivos %}
+                    <tr class="fila-archivo" data-tipo="{{ a.tipo }}" data-nombre="{{ a.nombre }}">
+                        <!-- Nombre -->
+                        <td>
+                            <div class="td-nombre">
+                                <div class="file-icon {{ a.tipo }}">
+                                    {% if a.tipo == 'png' %}
+                                        <i class="fas fa-image"></i>
+                                    {% else %}
+                                        <i class="fas fa-file-csv"></i>
+                                    {% endif %}
+                                </div>
+                                {{ a.nombre }}
+                            </div>
+                        </td>
+
+                        <!-- Badge tipo -->
+                        <td>
+                            <span class="badge badge-{{ a.tipo }}">{{ a.tipo.upper() }}</span>
+                        </td>
+
+                        <!-- Fecha -->
+                        <td style="color:#64748b; font-size:13px;">{{ a.fecha }}</td>
+
+                        <!-- Descargar -->
+                        <td>
+                            <a class="btn-dl"
+                               href="{{ url_for('static', filename='emg/' + a.nombre) }}"
+                               download="{{ a.nombre }}">
+                                <i class="fas fa-download"></i> Descargar
+                            </a>
+                            <button class="btn-del" onclick="eliminar('{{ a.nombre }}', this)">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr class="empty-row" id="filaVacia">
+                        <td colspan="4">
+                            <i class="fas fa-folder-open"></i>
+                            No hay muestras guardadas aún
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+
+<!-- ── MODAL ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="cerrarModal(event)">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title" id="modalNombre"></span>
+            <button class="modal-close" onclick="cerrarModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <img class="modal-img" id="modalImg" src="" alt="">
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/historial.js') }}"></script>
+
+</body>
+</html>
