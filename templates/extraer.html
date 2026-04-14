@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='csv.css') }}">
+</head>
+<body>
+
+<header class="navbar">
+    <div class="logo"></div>
+    <nav class="menu">
+        <a href="{{ url_for('home') }}">Inicio</a>
+        <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    </nav>
+</header>
+
+<main class="contenido">
+    <div class="container">
+        <h2>Extraer características de archivos CSV</h2>
+        <p style="color:#64748b; margin-bottom:16px; font-size:14px;">
+            Carga uno o varios CSV de señal EMG. Se calcularán WL, RMS, MAV y WAMP por archivo.
+        </p>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <p class="flash">{{ message }}</p>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('extraer') }}" method="post" enctype="multipart/form-data">
+            <div class="input-contenedor-limpio">
+                <label for="file-upload" class="boton-archivo-personalizado">
+                    <i class="fas fa-cloud-upload-alt"></i> Seleccionar archivos CSV
+                </label>
+                <input id="file-upload" type="file" name="archivos" multiple accept=".csv" required />
+            </div>
+            <button type="submit">Extraer y Descargar</button>
+        </form>
+        <br>
+        <a href="{{ url_for('modelo_view') }}" class="volver-link">← Regresar</a>
+    </div>
+</main>
+
+<footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+
+</body>
+</html>

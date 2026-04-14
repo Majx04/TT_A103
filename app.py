@@ -6,6 +6,9 @@ import numpy as np
 import csv
 import time
 import pickle
+import shutil
+import json
+from io import StringIO
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -534,6 +537,69 @@ def historial():
                 })
 
     return render_template("historial.html", archivos=archivos)
+
+#----EXTRAER CARACTERÍSTICAS
+@app.route("/extraer", methods=["GET", "POST"])
+def extraer():
+    if not login_required():
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        archivos = request.files.getlist("archivos")
+
+        if not archivos or all(f.filename == "" for f in archivos):
+            flash("No se seleccionaron archivos")
+            return redirect(url_for("extraer"))
+
+        from io import StringIO
+        from flask import Response
+
+        salida  = StringIO()
+        writer  = csv.writer(salida)
+        writer.writerow(["archivo", "WL", "RMS", "MAV", "WAMP"])  # header
+
+        for f in archivos:
+            if not f.filename.endswith(".csv"):
+                continue
+            try:
+                contenido = f.read().decode("utf-8").splitlines()
+                reader    = csv.reader(contenido)
+                filas     = list(reader)
+
+                # Saltar header, tomar columna de voltaje (índice 1)
+                voltajes = [float(fila[1]) for fila in filas[1:] if len(fila) >= 2]
+
+                if not voltajes:
+                    continue
+
+                seg  = np.array(voltajes, dtype=np.float64)
+                WL   = float(np.sum(np.abs(np.diff(seg))))
+                RMS  = float(np.sqrt(np.mean(seg ** 2)))
+                MAV  = float(np.mean(np.abs(seg)))
+                WAMP = int(np.sum(np.abs(np.diff(seg)) > 0.01))
+
+                writer.writerow([f.filename, WL, RMS, MAV, WAMP])
+
+            except Exception as e:
+                print(f"Error procesando {f.filename}: {e}")
+                continue
+
+        if not salida.getvalue().strip().splitlines()[1:]:  # solo header = sin datos
+            flash("No se pudieron extraer características de los archivos")
+            return redirect(url_for("extraer"))
+
+        return Response(
+            salida.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=caracteristicas.csv"}
+        )
+
+    return render_template("extraer.html")
+
+#----Modelo
+from rutas.modelo    import modelo_bp
+app.register_blueprint(modelo_bp)
+
 
 # ========================
 # MAIN
