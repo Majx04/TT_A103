@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='csv.css') }}">
+</head>
+
+<body>
+
+<header class="navbar">
+    <div class="logo"></div>
+    <nav class="menu">
+        <a href="{{ url_for('home') }}">Inicio</a>
+        <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    </nav>
+</header>
+<main class="contenido">
+    <div class="container">
+        <h2>Seleccione los archivos CSV que desea combinar</h2>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <p class="flash">{{ message }}</p>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('csv') }}" method="post" enctype="multipart/form-data">
+            <div class="input-contenedor-limpio">
+    <label for="file-upload" class="boton-archivo-personalizado">
+        <i class="fas fa-cloud-upload-alt"></i> Seleccionar archivos CSV
+    </label>
+    <input id="file-upload" type="file" name="archivos" multiple accept=".csv" required />
+</div>
+            <button type="submit">Combinar y Descargar</button>
+        </form>
+        <br>
+        <a href="/modelo" class="volver-link">← Regresar</a>
+    </div>
+
+</main>
+    <footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+
+
+</body>
+</html>

@@ -12,22 +12,8 @@
 
 <header class="navbar">
     <div class="logo"></div>
-
     <nav class="menu">
-        {% if admin and admin.can_manage_admins %}
-        <div class="dropdown">
-            <a href="#" class="dropbtn">Ajustes <i class="fas fa-caret-down"></i></a>
-            <div class="dropdown-content">
-                <a href="{{ url_for('nuevoAdmin') }}">
-                    <i class="fas fa-user-plus"></i> Agregar Administrador
-                </a>
-                <a href="{{ url_for('gestionar_admins') }}">
-                    <i class="fas fa-user-minus"></i> Eliminar Administrador
-                </a>
-            </div>
-        </div>
-        {% endif %}
-
+        <a href="{{ url_for('home') }}">Inicio</a>
         <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
     </nav>
 </header>
@@ -35,40 +21,33 @@
 <main class="contenido">
 
     <div class="dashboard-grid">
-        <a href="{{ url_for('usuario') }}" class="card-link">
+        <a href="{{ url_for('csv') }}" class="card-link">
             <div class="card">
-                <span class="icon"><i class="fas fa-user"></i></span>
-                <h3>Usuario</h3>
-                <p>Información general de los datos personales del usuario</p>
+                <span class="icon"><i class="fas fa-file-csv"></i></span>
+                <h3>CSV</h3>
+                <p>Preparación de los csv para el entrenamiento del modelo</p>
             </div>
         </a>
 
          <a href="{{ url_for('emg') }}" class="card-link">
             <div class="card">
-                <span class="icon"><i class="fas fa-wave-square"></i></span>
-                <h3>Adquisición EMG</h3>
-                <p>Señales Musculares</p>
+                <span class="icon"><i class="fas fa-microchip"></i></span>
+                <h3>Características</h3>
+                <p>Extracción de características</p>
             </div>
         </a>
 
         <a href="{{ url_for('modelo') }}" class="card-link">
             <div class="card">
-                <span class="icon"><i class="fas fa-brain"></i></span>
+                <span class="icon"><i class="fas fa-network-wired"></i></span>
                 <h3>Modelo de IA</h3>
-                <p>Funcionamiento principal y características</p>
-            </div>
-        </a>
-
-        <a href="#" class="card-link">
-            <div class="card">
-                <span class="icon"><i class="fas fa-cogs"></i></span>
-                <h3>Diseño mecánico</h3>
-                <p>Estructura y Planos</p>
+                <p>Entrenamiento del modelo</p>
             </div>
         </a>
     </div>
 
 </main>
+
 <footer class="footer">
     © 2026 TT A - 103. All rights reserved.
 </footer>
