@@ -461,6 +461,55 @@ def modelo_view():
         return redirect(url_for("login"))
     return render_template("vistaModelo.html")
 
+@app.route("/csv", methods=["GET", "POST"])
+def csv():
+    if not login_required():
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        archivos = request.files.getlist("archivos")
+
+        if not archivos or all(f.filename == "" for f in archivos):
+            flash("No se seleccionaron archivos")
+            return redirect(url_for("csv_combinar"))
+
+        combined = []
+        header   = None
+
+        for f in archivos:
+            if not f.filename.endswith(".csv"):
+                continue
+            contenido = f.read().decode("utf-8").splitlines()
+            reader    = csv.reader(contenido)
+            filas     = list(reader)
+            if not filas:
+                continue
+            if header is None:
+                header = filas[0]
+                combined.append(header)
+            combined.extend(filas[1:])  # omite header de archivos subsecuentes
+
+        if not combined:
+            flash("No se pudo leer ningún archivo CSV válido")
+            return redirect(url_for("csv_combinar"))
+
+        # Generar el CSV combinado en memoria y enviarlo como descarga
+        from io import StringIO
+        from flask import Response
+
+        salida = StringIO()
+        writer = csv.writer(salida)
+        writer.writerows(combined)
+
+        return Response(
+            salida.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=combinado.csv"}
+        )
+
+    return render_template("csv.html")
+
+#-----------AQUISICIONES GUARDADAS----
 @app.route("/historial")
 def historial():
     if not login_required():
