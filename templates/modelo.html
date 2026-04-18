@@ -3,18 +3,17 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
-    <title>TT A-103</title>
+    <title>Modelo IA — TT A-103</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='modelo.css') }}">
 </head>
 <body>
 
-<!-- NAVBAR -->
 <header class="navbar">
     <div class="logo"></div>
     <nav class="menu">
-        <a href="{{ url_for('modelo_view') }}">Regresar</a>
+        <a href="{{ url_for('modelo_view') }}"><i class="fas fa-arrow-left"></i> Regresar</a>
         <a href="{{ url_for('home') }}">Inicio</a>
         <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
     </nav>
@@ -31,7 +30,7 @@
             <i class="fas fa-history"></i> Versiones guardadas
         </button>
         <button class="tab" onclick="cambiarTab('analisis', this)">
-            <i class="fas fa-chart-scatter"></i> Análisis
+            <i class="fas fa-chart-bar"></i> Análisis
         </button>
     </div>
 
@@ -41,90 +40,50 @@
     <div class="tab-content active" id="tab-entrenamiento">
         <div class="entrenamiento-grid">
 
-            <!-- Panel izquierdo: configuración -->
             <div class="panel-config">
 
-                <!-- Cargar CSV -->
                 <div class="config-card">
-                    <div class="config-card-title">
-                        <i class="fas fa-file-csv"></i> Dataset
-                    </div>
-                    <label class="file-label" id="labelCSV">
+                    <div class="config-card-title"><i class="fas fa-file-csv"></i> Dataset</div>
+                    <label class="file-label">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <span id="nombreCSV">Seleccionar CSV de características</span>
                         <input type="file" id="inputCSV" accept=".csv" onchange="mostrarNombreCSV()">
                     </label>
                 </div>
 
-                <!-- Características -->
                 <div class="config-card">
-                    <div class="config-card-title">
-                        <i class="fas fa-sliders-h"></i> Características a usar
-                    </div>
+                    <div class="config-card-title"><i class="fas fa-sliders-h"></i> Características a usar</div>
                     <div class="features-grid">
-                        <label class="feat-check">
-                            <input type="checkbox" value="WL" checked> WL
-                            <span class="feat-desc">Waveform Length</span>
-                        </label>
-                        <label class="feat-check">
-                            <input type="checkbox" value="RMS" checked> RMS
-                            <span class="feat-desc">Root Mean Square</span>
-                        </label>
-                        <label class="feat-check">
-                            <input type="checkbox" value="MAV" checked> MAV
-                            <span class="feat-desc">Mean Absolute Value</span>
-                        </label>
-                        <label class="feat-check">
-                            <input type="checkbox" value="WAMP" checked> WAMP
-                            <span class="feat-desc">Willison Amplitude</span>
-                        </label>
+                        <label class="feat-check"><input type="checkbox" value="WL" checked> WL<span class="feat-desc">Waveform Length</span></label>
+                        <label class="feat-check"><input type="checkbox" value="RMS" checked> RMS<span class="feat-desc">Root Mean Square</span></label>
+                        <label class="feat-check"><input type="checkbox" value="MAV" checked> MAV<span class="feat-desc">Mean Absolute Value</span></label>
+                        <label class="feat-check"><input type="checkbox" value="WAMP" checked> WAMP<span class="feat-desc">Willison Amplitude</span></label>
                     </div>
                 </div>
 
-                <!-- Hiperparámetros -->
                 <div class="config-card">
-                    <div class="config-card-title">
-                        <i class="fas fa-cogs"></i> Hiperparámetros
-                    </div>
+                    <div class="config-card-title"><i class="fas fa-cogs"></i> Hiperparámetros</div>
                     <div class="hiper-grid">
-                        <div class="hiper-field">
-                            <label>Épocas</label>
-                            <input type="number" id="epochs" value="400" min="1">
-                        </div>
-                        <div class="hiper-field">
-                            <label>Batch size</label>
-                            <input type="number" id="batch" value="16" min="1">
-                        </div>
-                        <div class="hiper-field">
-                            <label>Learning rate</label>
-                            <input type="number" id="lr" value="0.001" step="0.0001" min="0.00001">
-                        </div>
-                        <div class="hiper-field">
-                            <label>Test split</label>
-                            <input type="number" id="split" value="0.2" step="0.05" min="0.05" max="0.5">
-                        </div>
+                        <div class="hiper-field"><label>Épocas</label><input type="number" id="epochs" value="400" min="1"></div>
+                        <div class="hiper-field"><label>Batch size</label><input type="number" id="batch" value="16" min="1"></div>
+                        <div class="hiper-field"><label>Learning rate</label><input type="number" id="lr" value="0.001" step="0.0001" min="0.00001"></div>
+                        <div class="hiper-field"><label>Test split</label><input type="number" id="split" value="0.2" step="0.05" min="0.05" max="0.5"></div>
                     </div>
                 </div>
 
-                <!-- Botones acción -->
                 <div class="action-btns">
-                    <button class="btn-action btn-train" id="btnEntrenar" onclick="iniciarEntrenamiento(false)">
+                    <button class="btn-action btn-train" onclick="iniciarEntrenamiento(false)">
                         <i class="fas fa-play"></i> Entrenar
                     </button>
-                    <button class="btn-action btn-retrain" id="btnReentrenar" onclick="iniciarEntrenamiento(true)">
+                    <button class="btn-action btn-retrain" onclick="iniciarEntrenamiento(true)">
                         <i class="fas fa-redo"></i> Reentrenar
                     </button>
                 </div>
             </div>
 
-            <!-- Panel derecho: progreso y resultados -->
             <div class="panel-resultado">
-
-                <!-- Estado -->
-                <div class="config-card" id="cardEstado">
-                    <div class="config-card-title">
-                        <i class="fas fa-terminal"></i> Estado
-                    </div>
+                <div class="config-card">
+                    <div class="config-card-title"><i class="fas fa-terminal"></i> Estado</div>
                     <div class="estado-log" id="estadoLog">
                         <span class="log-muted">Esperando inicio del entrenamiento...</span>
                     </div>
@@ -133,34 +92,18 @@
                     </div>
                 </div>
 
-                <!-- Métricas -->
                 <div class="config-card" id="cardMetricas" style="display:none;">
-                    <div class="config-card-title">
-                        <i class="fas fa-chart-bar"></i> Resultados
-                    </div>
+                    <div class="config-card-title"><i class="fas fa-chart-bar"></i> Resultados</div>
                     <div class="metricas-grid">
-                        <div class="metrica-box">
-                            <div class="metrica-label">Precisión test</div>
-                            <div class="metrica-val" id="mAcc">—</div>
-                        </div>
-                        <div class="metrica-box">
-                            <div class="metrica-label">Mejor val_acc</div>
-                            <div class="metrica-val" id="mValAcc">—</div>
-                        </div>
-                        <div class="metrica-box">
-                            <div class="metrica-label">Mejor época</div>
-                            <div class="metrica-val" id="mEpoch">—</div>
-                        </div>
-                        <div class="metrica-box">
-                            <div class="metrica-label">Clases</div>
-                            <div class="metrica-val" id="mClases">—</div>
-                        </div>
+                        <div class="metrica-box"><div class="metrica-label">Precisión test</div><div class="metrica-val" id="mAcc">—</div></div>
+                        <div class="metrica-box"><div class="metrica-label">Mejor val_acc</div><div class="metrica-val" id="mValAcc">—</div></div>
+                        <div class="metrica-box"><div class="metrica-label">Mejor época</div><div class="metrica-val" id="mEpoch">—</div></div>
+                        <div class="metrica-box"><div class="metrica-label">Clases</div><div class="metrica-val" id="mClases">—</div></div>
                     </div>
                     <button class="btn-action btn-save-model" onclick="guardarModelo()" style="margin-top:14px;">
                         <i class="fas fa-save"></i> Guardar modelo
                     </button>
                 </div>
-
             </div>
         </div>
     </div>
@@ -170,48 +113,27 @@
     ══════════════════════════════════════════ -->
     <div class="tab-content" id="tab-versiones">
         <div class="config-card">
-            <div class="config-card-title">
-                <i class="fas fa-history"></i> Versiones del modelo guardadas
-            </div>
-
+            <div class="config-card-title"><i class="fas fa-history"></i> Versiones del modelo guardadas</div>
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr>
-                            <th>Archivo</th>
-                            <th>Fecha</th>
-                            <th>Acciones</th>
-                        </tr>
+                        <tr><th>Archivo</th><th>Fecha</th><th>Acciones</th></tr>
                     </thead>
                     <tbody>
                         {% if versiones %}
                             {% for v in versiones %}
                             <tr>
-                                <td>
-                                    <div class="td-nombre">
-                                        <div class="file-icon-m">
-                                            <i class="fas fa-cube"></i>
-                                        </div>
-                                        {{ v.nombre }}
-                                    </div>
-                                </td>
+                                <td><div class="td-nombre"><div class="file-icon-m"><i class="fas fa-cube"></i></div>{{ v.nombre }}</div></td>
                                 <td style="color:#64748b; font-size:13px;">{{ v.fecha }}</td>
                                 <td>
-                                    <a class="btn-dl"
-                                       href="{{ url_for('static', filename='models/' ~ v.nombre) }}"
-                                       download="{{ v.nombre }}">
+                                    <a class="btn-dl" href="{{ url_for('static', filename='models/' ~ v.nombre) }}" download="{{ v.nombre }}">
                                         <i class="fas fa-download"></i> Descargar
                                     </a>
                                 </td>
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="3" class="empty-cell">
-                                    <i class="fas fa-box-open"></i>
-                                    No hay versiones guardadas aún
-                                </td>
-                            </tr>
+                            <tr><td colspan="3" class="empty-cell"><i class="fas fa-box-open"></i> No hay versiones guardadas aún</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -223,75 +145,70 @@
          TAB 3 — ANÁLISIS
     ══════════════════════════════════════════ -->
     <div class="tab-content" id="tab-analisis">
-        <div class="analisis-grid">
 
-            <!-- Cargar dataset para análisis -->
-            <div class="config-card" style="grid-column: 1 / -1;">
-                <div class="config-card-title">
-                    <i class="fas fa-database"></i> Dataset para análisis
-                </div>
-                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                    <label class="file-label" style="flex:1; min-width:200px;">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span id="nombreCSVAnalisis">Seleccionar CSV de características</span>
-                        <input type="file" id="inputCSVAnalisis" accept=".csv"
-                               onchange="document.getElementById('nombreCSVAnalisis').textContent = this.files[0]?.name || 'Seleccionar CSV'">
-                    </label>
-                    <button class="btn-action btn-train" style="width:auto; padding:10px 24px;"
-                            onclick="cargarAnalisis()">
-                        <i class="fas fa-chart-bar"></i> Analizar
-                    </button>
-                </div>
+        <!-- Controles superiores -->
+        <div class="config-card" style="margin-bottom:16px;">
+            <div class="config-card-title"><i class="fas fa-database"></i> Dataset para análisis</div>
+            <div class="analisis-controls">
+                <label class="file-label" style="flex:1;">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span id="nombreCSVAnalisis">Seleccionar CSV de características</span>
+                    <input type="file" id="inputCSVAnalisis" accept=".csv"
+                           onchange="document.getElementById('nombreCSVAnalisis').textContent = this.files[0]?.name || 'Seleccionar CSV'">
+                </label>
+
+                <!-- Checkbox outliers -->
+                <label class="opcion-check">
+                    <input type="checkbox" id="chkOutliers">
+                    <span class="opcion-box">
+                        <i class="fas fa-filter"></i>
+                        Eliminar outliers
+                        <small>Z-score &lt; 3</small>
+                    </span>
+                </label>
+
+                <button class="btn-action btn-train" style="width:auto; padding:10px 24px;"
+                        onclick="cargarAnalisis()">
+                    <i class="fas fa-chart-bar"></i> Analizar
+                </button>
             </div>
-
-            <!-- Gráfica distribución por clase -->
-            <div class="config-card">
-                <div class="config-card-title">
-                    <i class="fas fa-chart-bar"></i> Distribución de clases
-                </div>
-                <div class="grafica-wrap" id="grafClases">
-                    <span class="log-muted">Carga un CSV para ver la distribución</span>
-                </div>
-            </div>
-
-            <!-- Dispersión -->
-            <div class="config-card">
-                <div class="config-card-title">
-                    <i class="fas fa-braille"></i> Dispersión de características
-                </div>
-                <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-                    <select class="hiper-select" id="ejeX">
-                        <option value="WL">WL</option>
-                        <option value="RMS">RMS</option>
-                        <option value="MAV">MAV</option>
-                        <option value="WAMP">WAMP</option>
-                    </select>
-                    <span style="align-self:center; color:#64748b;">vs</span>
-                    <select class="hiper-select" id="ejeY">
-                        <option value="RMS">RMS</option>
-                        <option value="WL">WL</option>
-                        <option value="MAV">MAV</option>
-                        <option value="WAMP">WAMP</option>
-                    </select>
-                    <button class="btn-action btn-retrain" style="width:auto; padding:8px 18px;"
-                            onclick="dibujarDispersion()">
-                        <i class="fas fa-sync"></i> Actualizar
-                    </button>
-                </div>
-                <canvas id="canvasDispersion" style="width:100%; max-height:300px;"></canvas>
-            </div>
-
-            <!-- Boxplot por característica -->
-            <div class="config-card" style="grid-column: 1 / -1;">
-                <div class="config-card-title">
-                    <i class="fas fa-chart-area"></i> Estadísticas por clase
-                </div>
-                <div id="statsClases" class="stats-clases-wrap">
-                    <span class="log-muted">Carga un CSV para ver las estadísticas</span>
-                </div>
-            </div>
-
         </div>
+
+        <!-- Banner outliers -->
+        <div class="outliers-banner" id="outliersBanner" style="display:none; margin-bottom:16px;">
+            <i class="fas fa-filter"></i>
+            <div>
+                <strong id="outliersTexto"></strong>
+                <span id="outliersDetalle"></span>
+            </div>
+        </div>
+
+        <!-- Cards clases -->
+        <div class="section-label" id="labelClases" style="display:none;">
+            <i class="fas fa-table"></i> Distribución de clases
+        </div>
+        <div class="cards-clases" id="cardsClases"></div>
+
+        <!-- Gráficas -->
+        <div id="graficasWrap" style="display:none;">
+            <div class="section-label"><i class="fas fa-chart-bar"></i> Balance de clases</div>
+            <div class="grafica-card-m">
+                <img id="imgBalance" src="" alt="Balance de clases">
+            </div>
+
+            <div class="section-label"><i class="fas fa-braille"></i> Dispersión entre características (pairplot)</div>
+            <div class="grafica-card-m">
+                <img id="imgPairplot" src="" alt="Pairplot">
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state-m" id="emptyAnalisis">
+            <i class="fas fa-upload"></i>
+            <p>Carga un CSV para generar el análisis</p>
+            <span>El archivo debe contener columnas WL, RMS, MAV, WAMP y label</span>
+        </div>
+
     </div>
 
 </main>
@@ -300,6 +217,6 @@
     © 2026 TT A - 103. All rights reserved.
 </footer>
 
-<script src="{{ url_for('static', filename='js/modelo.js') }}"></script>
+<script src="{{ url_for('static', filename='modelo.js') }}"></script>
 </body>
 </html>

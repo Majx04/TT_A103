@@ -600,6 +600,8 @@ def extraer():
 from rutas.modelo    import modelo_bp
 app.register_blueprint(modelo_bp)
 
+#----ANALISIS
+
 
 # ========================
 # MAIN
