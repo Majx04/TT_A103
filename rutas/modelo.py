@@ -3,9 +3,10 @@ import time
 import pickle
 import shutil
 import numpy as np
+import base64
 
-from io import StringIO
-from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, Response
+from io import StringIO, BytesIO
+from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify
 
 import torch
 import torch.nn as nn
@@ -16,7 +17,6 @@ from sklearn.model_selection import train_test_split
 
 modelo_bp = Blueprint('modelo_bp', __name__)
 
-# ── Helper: importar variables globales de app sin circular ──────────────────
 def _app():
     import app as _a
     return _a
@@ -24,9 +24,9 @@ def _app():
 def login_required():
     return "usuario" in session
 
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
 # GET  /modelo/vista
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
 @modelo_bp.route("/modelo/vista")
 def modelo_vista():
     if not login_required():
@@ -47,9 +47,9 @@ def modelo_vista():
     return render_template("modelo.html", versiones=versiones)
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
 # POST /modelo/entrenar
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
 @modelo_bp.route("/modelo/entrenar", methods=["POST"])
 def modelo_entrenar():
     if not login_required():
@@ -82,9 +82,9 @@ def modelo_entrenar():
         X = df[features].values
         y = df["label"].values
 
-        le_local = LabelEncoder()
-        y        = le_local.fit_transform(y)
-        num_classes = len(np.unique(y))
+        le_local     = LabelEncoder()
+        y            = le_local.fit_transform(y)
+        num_classes  = len(np.unique(y))
 
         scaler_local = StandardScaler()
         X = scaler_local.fit_transform(X)
@@ -111,9 +111,7 @@ def modelo_entrenar():
         train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False)
 
-        device = a.device
-
-        # Cargar pesos existentes si es reentrenamiento
+        device       = a.device
         nuevo_modelo = a.LSTMClassifier(
             input_size=len(features),
             num_classes=num_classes
@@ -126,7 +124,7 @@ def modelo_entrenar():
                     ckpt = torch.load(pt_path, map_location=device)
                     nuevo_modelo.load_state_dict(ckpt["model_state_dict"])
                 except Exception:
-                    pass  # arquitectura diferente → empieza desde cero
+                    pass
 
         optimizer = optim.Adam(nuevo_modelo.parameters(), lr=lr)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -163,13 +161,11 @@ def modelo_entrenar():
                 best_val_acc = val_acc
                 best_epoch   = epoch
 
-        # Evaluación final en test
         nuevo_modelo.eval()
         with torch.no_grad():
             preds = nuevo_modelo(X_test_t.to(device)).argmax(1).cpu()
         test_acc = (preds == y_test_t).float().mean().item()
 
-        # Guardar modelo activo
         os.makedirs(a.MODELO_DIR, exist_ok=True)
         torch.save({
             "model_state_dict": nuevo_modelo.state_dict(),
@@ -195,7 +191,6 @@ def modelo_entrenar():
         with open(os.path.join(a.MODELO_DIR, "metadata.pkl"), "wb") as f:
             pickle.dump(meta, f)
 
-        # Actualizar variables globales en app.py
         a.modelo_lstm    = nuevo_modelo
         a.scaler         = scaler_local
         a.le             = le_local
@@ -213,15 +208,15 @@ def modelo_entrenar():
         return jsonify({"error": str(e)})
 
 
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
 # POST /modelo/guardar
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
 @modelo_bp.route("/modelo/guardar", methods=["POST"])
 def modelo_guardar_version():
     if not login_required():
         return jsonify({"error": "No autenticado"}), 401
 
-    a = _app()
+    a      = _app()
     origen = os.path.join(a.MODELO_DIR, "modelo_lstm.pt")
 
     if not os.path.exists(origen):
@@ -232,7 +227,6 @@ def modelo_guardar_version():
     destino = os.path.join(a.app.config['MODEL_FOLDER'], nombre)
     shutil.copy2(origen, destino)
 
-    # Copiar artefactos con el mismo timestamp
     for arch in ["scaler.pkl", "label_encoder.pkl", "metadata.pkl"]:
         src = os.path.join(a.MODELO_DIR, arch)
         if os.path.exists(src):
@@ -244,74 +238,20 @@ def modelo_guardar_version():
     return jsonify({"ok": True, "nombre": nombre})
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# POST /modelo/analisis
-# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════
+# POST /modelo/analisis  ← código exacto del notebook
+# ════════════════════════════════════════════════════════════
 @modelo_bp.route("/modelo/analisis", methods=["POST"])
 def modelo_analisis():
     if not login_required():
         return jsonify({"error": "No autenticado"}), 401
 
-    archivo = request.files.get("archivo")
-    if not archivo:
-        return jsonify({"error": "No se recibió archivo"})
-
-    try:
-        import pandas as pd
-
-        df = pd.read_csv(StringIO(archivo.read().decode("utf-8")))
-
-        if "label" not in df.columns:
-            return jsonify({"error": "El CSV debe tener columna 'label'"})
-
-        feat_cols = [c for c in ["WL", "RMS", "MAV", "WAMP"] if c in df.columns]
-
-        # Conteo por clase
-        conteo = df["label"].value_counts().to_dict()
-
-        # Puntos para dispersión (máx 500)
-        muestra = df.sample(min(500, len(df)), random_state=42)
-        puntos  = muestra[feat_cols + ["label"]].to_dict(orient="records")
-
-        # Estadísticas por clase
-        stats_clases = {}
-        for clase, grupo in df.groupby("label"):
-            stats_clases[str(clase)] = {
-                feat: {
-                    "mean": float(grupo[feat].mean()),
-                    "std":  float(grupo[feat].std()),
-                    "min":  float(grupo[feat].min()),
-                    "max":  float(grupo[feat].max()),
-                }
-                for feat in feat_cols
-            }
-
-        return jsonify({
-            "conteo_clases": conteo,
-            "puntos":        puntos,
-            "stats_clases":  stats_clases,
-            "features":      feat_cols,
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-
-
-@modelo_bp.route("/modelo/analisis", methods=["POST"])
-def modelo_analisis():
-    if not login_required():
-        return jsonify({"error": "No autenticado"}), 401
-
-    import base64
-    from io import BytesIO
-    import numpy as np
+    import pandas as pd
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import seaborn as sns
     from scipy import stats
-    import pandas as pd
 
     archivo           = request.files.get("archivo")
     eliminar_outliers = request.form.get("eliminar_outliers") == "1"
@@ -320,30 +260,45 @@ def modelo_analisis():
         return jsonify({"error": "No se recibió archivo"})
 
     try:
+        # ── Cargar CSV ────────────────────────────────────────
         df = pd.read_csv(StringIO(archivo.read().decode("utf-8")))
 
         if "label" not in df.columns:
             return jsonify({"error": "El CSV debe tener columna 'label'"})
 
-        COLORES   = ['#5b8fb9','#ef4444','#16a34a','#f59e0b',
-                     '#8b5cf6','#ec4899','#14b8a6','#f97316']
-        feat_cols = [c for c in ["WL","RMS","MAV","WAMP"] if c in df.columns]
+        COLORES   = ['#5b8fb9', '#ef4444', '#16a34a', '#f59e0b',
+                     '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+        feat_cols = [c for c in ["WL", "RMS", "MAV", "WAMP"] if c in df.columns]
         outliers_info = None
 
-        # ── Eliminar outliers ─────────────────────────────────
+        # ── Conteo de clases (del notebook) ──────────────────
+        conteo = df["label"].value_counts()
+        total  = len(df)
+
+        print("Distribución de clases:")
+        print(conteo)
+        print(f"\nTotal de muestras: {total}")
+        print(f"\nPorcentaje por clase:")
+        print((conteo / total * 100).round(2).astype(str) + "%")
+
+        # ── Eliminar outliers (del notebook) ─────────────────
         if eliminar_outliers and feat_cols:
-            antes   = len(df)
-            df      = df[(np.abs(stats.zscore(df[feat_cols])) < 3).all(axis=1)]
+            antes = len(df)
+            df    = df[(np.abs(stats.zscore(df[feat_cols])) < 3).all(axis=1)]
             outliers_info = {
                 "antes":      antes,
                 "despues":    len(df),
                 "eliminados": antes - len(df),
             }
+            print(f"\nMuestras antes de limpiar: {antes}")
+            print(f"Muestras después de limpiar: {len(df)}")
+            print(f"Outliers eliminados: {antes - len(df)}")
 
-        # ── Distribución de clases ────────────────────────────
-        conteo = df["label"].value_counts()
-        total  = len(df)
+            # Recalcular conteo con datos limpios
+            conteo = df["label"].value_counts()
+            total  = len(df)
 
+        # ── Diccionario de clases para el frontend ────────────
         clases_dict = {}
         for i, (clase, count) in enumerate(conteo.items()):
             clases_dict[str(clase)] = {
@@ -352,39 +307,38 @@ def modelo_analisis():
                 "color": COLORES[i % len(COLORES)],
             }
 
-        # ── Gráfica balance ───────────────────────────────────
+        # ── Gráfica balance (del notebook) ───────────────────
         fig1, ax1 = plt.subplots(figsize=(8, 5))
         colores_bar = [COLORES[i % len(COLORES)] for i in range(len(conteo))]
-        bars = ax1.bar(conteo.index.astype(str), conteo.values,
-                       color=colores_bar, edgecolor='white', linewidth=1.5, width=0.6)
-        ax1.set_title("Balance de clases", fontsize=14, fontweight='bold', pad=15)
-        ax1.set_xlabel("Clase", fontsize=11)
-        ax1.set_ylabel("Número de muestras", fontsize=11)
-        ax1.set_facecolor('#f8fafc')
-        fig1.patch.set_facecolor('white')
-        ax1.spines['top'].set_visible(False)
-        ax1.spines['right'].set_visible(False)
+        bars = ax1.bar(
+            conteo.index.astype(str), conteo.values,
+            color=colores_bar, edgecolor="black", width=0.6
+        )
+        ax1.set_title("Balance de clases")
+        ax1.set_xlabel("Clase")
+        ax1.set_ylabel("Número de muestras")
         ax1.tick_params(axis='x', rotation=0)
-        for bar, v in zip(bars, conteo.values):
-            ax1.text(bar.get_x() + bar.get_width() / 2,
-                     bar.get_height() + 0.5,
-                     str(v), ha='center', fontweight='bold', fontsize=11)
+        for i, v in enumerate(conteo.values):
+            ax1.text(i, v + 1, str(v), ha="center", fontweight="bold")
         plt.tight_layout()
+
         buf1 = BytesIO()
         fig1.savefig(buf1, format='png', dpi=120, bbox_inches='tight')
         buf1.seek(0)
         img_balance = base64.b64encode(buf1.read()).decode('utf-8')
         plt.close(fig1)
 
-        # ── Pairplot ──────────────────────────────────────────
-        paleta = {str(c): COLORES[i % len(COLORES)]
-                  for i, c in enumerate(df["label"].unique())}
-        df_plot = df[feat_cols + ["label"]].copy()
+        # ── Pairplot (del notebook) ───────────────────────────
+        paleta   = {str(c): COLORES[i % len(COLORES)]
+                    for i, c in enumerate(df["label"].unique())}
+        df_plot  = df[feat_cols + ["label"]].copy()
         df_plot["label"] = df_plot["label"].astype(str)
 
         sns.set_style("whitegrid")
         pair_grid = sns.pairplot(
-            df_plot, hue="label", vars=feat_cols,
+            df_plot,
+            hue="label",
+            vars=feat_cols,
             palette=paleta,
             plot_kws={"alpha": 0.6, "s": 20},
             diag_kind="kde"

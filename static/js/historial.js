@@ -1,63 +1,93 @@
-let filtroActivo = 'todos';
+// ── FILTROS ─────────────────────────────────────────────
+const filterBtns = document.querySelectorAll(".filter-btn");
+const buscador   = document.getElementById("buscador");
 
-function filtrar() {
-    const busqueda = document.getElementById('buscador').value.toLowerCase();
-    const filas    = document.querySelectorAll('.fila-archivo');
-    let visibles   = 0;
+function actualizarTabla() {
+    const filtroActivo = document.querySelector(".filter-btn.active")?.dataset.filtro || "todos";
+    const texto        = buscador.value.toLowerCase();
+    const filas        = document.querySelectorAll(".fila-archivo");
 
+    let visibles = 0;
     filas.forEach(fila => {
-        const tipo    = fila.getAttribute('data-tipo');
-        const nombre  = fila.getAttribute('data-nombre').toLowerCase();
-        const matchTipo   = filtroActivo === 'todos' || tipo === filtroActivo;
-        const matchNombre = nombre.includes(busqueda);
+        const tipo   = fila.dataset.tipo;
+        const nombre = fila.dataset.nombre.toLowerCase();
 
-        fila.style.display = (matchTipo && matchNombre) ? '' : 'none';
-        if (matchTipo && matchNombre) visibles++;
+        const pasaFiltro  = filtroActivo === "todos" || tipo === filtroActivo;
+        const pasaBusqueda = nombre.includes(texto);
+
+        if (pasaFiltro && pasaBusqueda) {
+            fila.style.display = "";
+            visibles++;
+        } else {
+            fila.style.display = "none";
+        }
     });
 
-    const filaVacia = document.getElementById('filaVacia');
-    if (filaVacia) filaVacia.style.display = visibles === 0 ? '' : 'none';
+    // Contador
+    const contador = document.getElementById("contadorVisible");
+    if (contador) contador.textContent = `(${visibles})`;
 
-    document.getElementById('contadorVisible').textContent =
-        `(${visibles} archivo${visibles !== 1 ? 's' : ''})`;
-}
-async function eliminar(nombre, btn) {
-    if (!confirm(`¿Eliminar ${nombre}?`)) return;
-
-    const form = new FormData();
-    const r = await fetch(`/historial/eliminar/${nombre}`, { method: "POST", body: form });
-    const d = await r.json();
-
-    if (d.ok) {
-        const fila = btn.closest('tr');
-        fila.style.transition = 'opacity 0.3s';
-        fila.style.opacity = '0';
-        setTimeout(() => { fila.remove(); filtrar(filtroActivo); }, 300);
-    } else {
-        alert(d.error);
-    }
+    // Fila vacía
+    const filaVacia = document.getElementById("filaVacia");
+    if (filaVacia) filaVacia.style.display = visibles === 0 ? "" : "none";
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Botones de filtro
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            filtroActivo = btn.getAttribute('data-filtro');
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            filtrar();
+filterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+        filterBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        actualizarTabla();
+    });
+});
+
+buscador.addEventListener("input", actualizarTabla);
+
+// Contador inicial
+actualizarTabla();
+
+// ── ELIMINAR ────────────────────────────────────────────
+function eliminar(nombre, btnEl) {
+    if (!confirm(`¿Eliminar "${nombre}"?`)) return;
+
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    fetch(`/historial/eliminar/${encodeURIComponent(nombre)}`, { method: "POST" })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) {
+                alert("Error al eliminar: " + (data.error || ""));
+                btnEl.disabled = false;
+                btnEl.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+                return;
+            }
+
+            // Solo elimina la fila exacta del archivo presionado
+            const fila = btnEl.closest(".fila-archivo");
+            if (fila) fila.remove();
+
+            actualizarTabla();
+        })
+        .catch(() => {
+            alert("Error de conexión");
+            btnEl.disabled = false;
+            btnEl.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
         });
+}
+
+// ── MODAL IMAGEN ─────────────────────────────────────────
+document.querySelectorAll(".fila-archivo[data-tipo='png']").forEach(fila => {
+    fila.querySelector(".td-nombre")?.addEventListener("click", () => {
+        const nombre = fila.dataset.nombre;
+        document.getElementById("modalNombre").textContent = nombre;
+        document.getElementById("modalImg").src = `/static/emg/${nombre}`;
+        document.getElementById("modalOverlay").style.display = "flex";
     });
-
-    // Buscador
-    document.getElementById('buscador').addEventListener('input', filtrar);
-
-    // Contador inicial
-    filtrar();
 });
 
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        document.getElementById('modalOverlay').classList.remove('open');
+function cerrarModal(e) {
+    if (!e || e.target === document.getElementById("modalOverlay") || e.currentTarget?.classList.contains("modal-close")) {
+        document.getElementById("modalOverlay").style.display = "none";
+        document.getElementById("modalImg").src = "";
     }
-});
+}

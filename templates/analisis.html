@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Análisis — TT A-103</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='analisis.css') }}">
+</head>
+<body>
+
+<header class="navbar">
+    <div class="logo"></div>
+    <nav class="menu">
+        <a href="{{ url_for('modelo_view') }}"><i class="fas fa-arrow-left"></i> Regresar</a>
+        <a href="{{ url_for('home') }}">Inicio</a>
+        <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+    </nav>
+</header>
+
+<main class="analisis-main">
+
+    <div class="analisis-header">
+        <div class="analisis-title">
+            <i class="fas fa-chart-bar"></i> Análisis de datos
+        </div>
+    </div>
+
+    <!-- Upload -->
+    <div class="upload-card">
+        <form action="{{ url_for('analisis') }}" method="post" enctype="multipart/form-data">
+            <div class="upload-row">
+                <label class="file-label-a">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span id="nombreCSV">{{ filename or 'Seleccionar CSV de características' }}</span>
+                    <input type="file" name="archivo" accept=".csv"
+                           onchange="document.getElementById('nombreCSV').textContent = this.files[0]?.name || 'Seleccionar CSV'">
+                </label>
+
+                <!-- Checklist opciones -->
+                <div class="opciones-wrap">
+                    <label class="opcion-check">
+                        <input type="checkbox" name="eliminar_outliers"
+                               value="1" {{ 'checked' if opciones.eliminar_outliers }}>
+                        <span class="opcion-box">
+                            <i class="fas fa-filter"></i>
+                            Eliminar outliers
+                            <small>Z-score &lt; 3</small>
+                        </span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-analizar">
+                    <i class="fas fa-chart-bar"></i> Analizar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% if resultado %}
+
+    <!-- Info outliers -->
+    {% if resultado.outliers_info %}
+    <div class="outliers-banner">
+        <i class="fas fa-filter"></i>
+        <div>
+            <strong>Outliers eliminados: {{ resultado.outliers_info.eliminados }}</strong>
+            <span>{{ resultado.outliers_info.antes }} muestras originales → {{ resultado.outliers_info.despues }} muestras limpias</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resumen de clases -->
+    <div class="section-title"><i class="fas fa-table"></i> Distribución de clases</div>
+    <div class="cards-clases">
+        {% for clase, info in resultado.clases.items() %}
+        <div class="clase-card" style="border-top: 4px solid {{ info.color }}">
+            <div class="clase-nombre">{{ clase }}</div>
+            <div class="clase-count">{{ info.count }}</div>
+            <div class="clase-pct">{{ info.pct }}% del total</div>
+            <div class="clase-bar-wrap">
+                <div class="clase-bar" style="width:{{ info.pct }}%; background:{{ info.color }}"></div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="clase-card total-card">
+            <div class="clase-nombre">Total</div>
+            <div class="clase-count">{{ resultado.total }}</div>
+            <div class="clase-pct">muestras</div>
+        </div>
+    </div>
+
+    <!-- Gráfica balance -->
+    <div class="section-title"><i class="fas fa-chart-bar"></i> Balance de clases</div>
+    <div class="grafica-card">
+        <img src="data:image/png;base64,{{ resultado.img_balance }}" alt="Balance de clases">
+    </div>
+
+    <!-- Pairplot -->
+    <div class="section-title"><i class="fas fa-braille"></i> Dispersión entre características (pairplot)</div>
+    <div class="grafica-card grafica-wide">
+        <img src="data:image/png;base64,{{ resultado.img_pairplot }}" alt="Pairplot">
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-upload"></i>
+        <p>Carga un CSV para generar el análisis</p>
+        <span>El archivo debe contener columnas WL, RMS, MAV, WAMP y label</span>
+    </div>
+    {% endif %}
+
+</main>
+
+<footer class="footer">
+    © 2026 TT A - 103. All rights reserved.
+</footer>
+
+</body>
+</html>

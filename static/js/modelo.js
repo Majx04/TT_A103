@@ -33,10 +33,10 @@ async function iniciarEntrenamiento(reentrenar) {
         .map(cb => cb.value);
     if (!features.length) { alert('Selecciona al menos una característica'); return; }
 
-    const epochs   = document.getElementById('epochs').value;
-    const batch    = document.getElementById('batch').value;
-    const lr       = document.getElementById('lr').value;
-    const split    = document.getElementById('split').value;
+    const epochs = document.getElementById('epochs').value;
+    const batch  = document.getElementById('batch').value;
+    const lr     = document.getElementById('lr').value;
+    const split  = document.getElementById('split').value;
 
     clearLog();
     log(`Modo: ${reentrenar ? 'Reentrenamiento' : 'Entrenamiento nuevo'}`);
@@ -70,7 +70,7 @@ async function iniciarEntrenamiento(reentrenar) {
         }
 
         document.getElementById('progressBar').style.width = '100%';
-        log(`✔ Entrenamiento completado`, 'ok');
+        log('✔ Entrenamiento completado', 'ok');
         log(`Precisión test: ${(d.test_accuracy * 100).toFixed(2)}%`, 'ok');
         log(`Mejor época: ${d.best_epoch} | Mejor val_acc: ${(d.best_val_accuracy * 100).toFixed(2)}%`, 'ok');
 
@@ -109,7 +109,6 @@ async function cargarAnalisis() {
     form.append('archivo',           archivo);
     form.append('eliminar_outliers', eliminarOutliers ? '1' : '0');
 
-    // Ocultar resultados anteriores
     document.getElementById('emptyAnalisis').style.display  = 'none';
     document.getElementById('graficasWrap').style.display   = 'none';
     document.getElementById('cardsClases').innerHTML        = '';
@@ -122,7 +121,7 @@ async function cargarAnalisis() {
 
         if (d.error) { alert(d.error); return; }
 
-        // ── Banner outliers ──────────────────────────────────
+        // Banner outliers
         if (d.outliers_info) {
             const info = d.outliers_info;
             document.getElementById('outliersTexto').textContent  =
@@ -132,8 +131,8 @@ async function cargarAnalisis() {
             document.getElementById('outliersBanner').style.display = 'flex';
         }
 
-        // ── Cards de clases ──────────────────────────────────
-        const wrap = document.getElementById('cardsClases');
+        // Cards clases
+        const wrap    = document.getElementById('cardsClases');
         const COLORES = ['#5b8fb9','#ef4444','#16a34a','#f59e0b',
                          '#8b5cf6','#ec4899','#14b8a6','#f97316'];
 
@@ -152,7 +151,6 @@ async function cargarAnalisis() {
             wrap.appendChild(card);
         });
 
-        // Card total
         const total = document.createElement('div');
         total.className = 'clase-card total-card';
         total.innerHTML = `
@@ -163,7 +161,7 @@ async function cargarAnalisis() {
 
         document.getElementById('labelClases').style.display = 'flex';
 
-        // ── Gráficas ─────────────────────────────────────────
+        // Gráficas
         document.getElementById('imgBalance').src  = `data:image/png;base64,${d.img_balance}`;
         document.getElementById('imgPairplot').src = `data:image/png;base64,${d.img_pairplot}`;
         document.getElementById('graficasWrap').style.display = 'block';

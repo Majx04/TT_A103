@@ -1,104 +1,188 @@
-let pausado = false;
-const ctx = document.getElementById("grafica").getContext("2d");
+// ── ESTADO ──────────────────────────────────────────────
+let pausado   = false;
+let chartData = new Array(5000).fill(0);
 
-// 1. Inicialización de la gráfica
-const chart = new Chart(ctx, {
-    type: "line",
-    data: {
-        labels: [],
-        datasets: [{
-            label: "Señal EMG (Voltaje)",
-            data: [],
-            borderColor: "#5b8fb9",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            fill: false,
-            tension: 0.1
-        }]
-    },
-    options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                min: 0,
-                max: 3.5, // Ajustado al VREF de 3.3V de tu Python
-                title: { display: true, text: "Voltaje (V)" }
-            },
-            x: { ticks: { display: false } }
-        }
+const PALETA = ["#00e5ff","#ff4081","#69f0ae","#ffea00","#ff6d00","#d500f9","#00b0ff","#76ff03"];
+let clases = [];
+
+// ── CANVAS ──────────────────────────────────────────────
+const canvas = document.getElementById("emgCanvas");
+const ctx    = canvas.getContext("2d");
+
+function resizeCanvas() {
+    // Fuerza dimensiones en píxeles reales, no CSS
+    const wrapper = canvas.parentElement;
+    canvas.width  = wrapper.clientWidth  || 800;
+    canvas.height = wrapper.clientHeight || 300;
+}
+
+window.addEventListener("resize", () => { resizeCanvas(); drawChart(); });
+resizeCanvas();
+
+function drawChart() {
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Fondo
+    ctx.fillStyle = "#0d1117";
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid horizontal (5 líneas)
+    ctx.strokeStyle = "#21262d";
+    ctx.lineWidth   = 0.8;
+    for (let i = 0; i <= 4; i++) {
+        const y = (i / 4) * H;          // ← corregido: de arriba hacia abajo
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
     }
-});
 
-// 2. Función para obtener datos (Ruta corregida a /emg/data)
-function actualizar() {
+    if (!chartData.length) return;
+
+    // ── Normalización dinámica ──────────────────────────
+    // En lugar de asumir siempre 3.3 V de fondo, usamos el rango real
+    // para que la señal sea visible aunque el ADC aún no tenga datos buenos
+    const maxVal = Math.max(...chartData);
+    const minVal = Math.min(...chartData);
+    const range  = maxVal - minVal || 1;   // evita división por cero
+
+    ctx.strokeStyle = "#00e5ff";
+    ctx.lineWidth   = 1.2;
+    ctx.beginPath();
+
+    const step = W / (chartData.length - 1);
+    for (let i = 0; i < chartData.length; i++) {
+        const x = i * step;
+        // Mapea [minVal, maxVal] → [H*0.95, H*0.05]  (margen de 5%)
+        const y = H * 0.95 - ((chartData[i] - minVal) / range) * H * 0.9;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Etiqueta de escala (opcional, ayuda a depurar)
+    ctx.fillStyle = "#556070";
+    ctx.font      = "11px monospace";
+    ctx.fillText(`max ${maxVal.toFixed(3)} V`, 6, 14);
+    ctx.fillText(`min ${minVal.toFixed(3)} V`, 6, H - 6);
+}
+
+// ── FETCH DATA ──────────────────────────────────────────
+async function fetchData() {
     if (pausado) return;
+    try {
+        const r = await fetch("/emg/data");
+        if (!r.ok) return;
+        const json = await r.json();
 
-    fetch("/emg/data") // <--- CAMBIO AQUÍ
-        .then(r => r.json())
-        .then(data => {
-            if (Array.isArray(data) && data.length > 0) {
-                chart.data.labels = data.map((_, i) => i);
-                chart.data.datasets[0].data = data;
-                chart.update('none');
-            }
-        })
-        .catch(err => console.error("Error obteniendo datos:", err));
-}
+        // Validación: que sea array con números
+        if (!Array.isArray(json) || json.length === 0) return;
+        chartData = json;
 
-setInterval(actualizar, 50);
+        drawChart();
 
-// 3. Función Pausar / Reanudar (Ruta corregida a /emg/toggle)
-function toggleEMG() {
-    fetch("/emg/toggle", { method: "POST" }) // <--- CAMBIO AQUÍ
-        .then(r => r.json())
-        .then(data => {
-            pausado = data.pausado;
-            const estado = document.getElementById("estado");
-            const btn = document.getElementById("btnPausa");
-            const btnGuardar = document.getElementById("btnGuardar");
+        // Stats
+        const max = Math.max(...chartData);
+        const min = Math.min(...chartData);
+        const rms = Math.sqrt(chartData.reduce((s, v) => s + v * v, 0) / chartData.length);
+        const mav = chartData.reduce((s, v) => s + Math.abs(v), 0) / chartData.length;
 
-            if (pausado) {
-                estado.innerText = "● Adquisición Detenida";
-                estado.className = "estado pausado";
-                btn.innerText = "Reanudar";
-                btnGuardar.disabled = false;
-            } else {
-                estado.innerText = "● Adquisición activa";
-                estado.className = "estado activo";
-                btn.innerText = "Pausar";
-                btnGuardar.disabled = true;
-            }
-        });
-}
+        document.getElementById("statMax").textContent = max.toFixed(3);
+        document.getElementById("statMin").textContent = min.toFixed(3);
+        document.getElementById("statRms").textContent = rms.toFixed(3);
+        document.getElementById("statMav").textContent = mav.toFixed(3);
 
-// 4. Función Guardar (Ruta corregida a /emg/guardar)
-function guardarEMG() {
-    const nombreInput = document.getElementById("nombre");
-    const nombre = nombreInput.value.trim();
-
-    if (!nombre) {
-        alert("Por favor, ingresa un nombre.");
-        return;
+    } catch(e) {
+        console.error("fetchData error:", e);
     }
-
-    // Tu Python usa request.form.get("nombre"), así que enviamos FormData
-    const formData = new FormData();
-    formData.append("nombre", nombre);
-
-    fetch("/emg/guardar", { // <--- CAMBIO AQUÍ
-        method: "POST",
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.ok) {
-            alert("Guardado como: " + data.ok);
-            nombreInput.value = "";
-        } else {
-            alert("Error: " + data.error);
-        }
-    })
-    .catch(err => alert("Error al conectar con el servidor"));
 }
+
+// ── CLASIFICACIÓN ────────────────────────────────────────
+async function fetchClasificacion() {
+    try {
+        const r = await fetch("/emg/clasificacion");
+        if (!r.ok) return;
+        const d = await r.json();
+
+        const etiqueta  = d.etiqueta  || "—";
+        const confianza = d.confianza || 0;
+
+        document.getElementById("clfEtiqueta").textContent  = etiqueta;
+        document.getElementById("clfConfianza").textContent = `Confianza: ${(confianza * 100).toFixed(1)}%`;
+        document.getElementById("confBar").style.width      = `${(confianza * 100).toFixed(1)}%`;
+
+        if (!clases.length) {
+            try {
+                const cr = await fetch("/emg/clases");
+                clases = (await cr.json()).clases || [];
+            } catch(e) {}
+        }
+        const idx   = clases.indexOf(etiqueta);
+        const color = idx >= 0 ? PALETA[idx % PALETA.length] : "#00e5ff";
+        document.getElementById("clfEtiqueta").style.color  = color;
+        document.getElementById("confBar").style.background = color;
+
+    } catch(e) {}
+}
+
+// ── PAUSA ────────────────────────────────────────────────
+async function togglePausa() {
+    try {
+        const r = await fetch("/emg/toggle", { method: "POST" });
+        const d = await r.json();
+        pausado = d.pausado;
+
+        const dot     = document.getElementById("estadoDot");
+        const texto   = document.getElementById("estadoTexto");
+        const icon    = document.getElementById("pausaIcon");
+        const btnTxt  = document.getElementById("pausaTexto");
+        const btnSave = document.getElementById("btnGuardar");
+
+        if (pausado) {
+            dot.classList.add("pausado");
+            texto.textContent  = "PAUSADO";
+            icon.className     = "fas fa-play";
+            btnTxt.textContent = "Reanudar";
+            btnSave.disabled   = false;
+        } else {
+            dot.classList.remove("pausado");
+            texto.textContent  = "Adquisición activa";
+            icon.className     = "fas fa-pause";
+            btnTxt.textContent = "Pausar";
+            btnSave.disabled   = true;
+        }
+    } catch(e) { showToast("Error al cambiar estado", "err"); }
+}
+
+// ── GUARDAR ──────────────────────────────────────────────
+async function guardarMuestra() {
+    const nombre = document.getElementById("nombreInput").value.trim();
+    if (!nombre) { showToast("Escribe un nombre base", "err"); return; }
+
+    const form = new FormData();
+    form.append("nombre", nombre);
+
+    try {
+        const r = await fetch("/emg/guardar", { method: "POST", body: form });
+        const d = await r.json();
+        if (d.ok) showToast(`✔ Guardado: ${d.ok}`, "ok");
+        else      showToast(`✖ ${d.error}`, "err");
+    } catch(e) { showToast("Error al guardar", "err"); }
+}
+
+// ── TOAST ────────────────────────────────────────────────
+function showToast(msg, type = "ok") {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className   = `show ${type}`;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.className = ""; }, 3200);
+}
+
+// ── LOOPS ────────────────────────────────────────────────
+setInterval(fetchData,          50);
+setInterval(fetchClasificacion, 500);
+
+drawChart();  // primer frame

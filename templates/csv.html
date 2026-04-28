@@ -29,7 +29,7 @@
           {% endif %}
         {% endwith %}
 
-        <form action="{{ url_for('csv') }}" method="post" enctype="multipart/form-data">
+        <form action="{{ url_for('csv_route') }}" method="post" enctype="multipart/form-data">
             <div class="input-contenedor-limpio">
     <label for="file-upload" class="boton-archivo-personalizado">
         <i class="fas fa-cloud-upload-alt"></i> Seleccionar archivos CSV

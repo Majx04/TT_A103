@@ -1,4 +1,5 @@
 import os
+import atexit
 import serial
 import threading
 import collections
@@ -10,7 +11,7 @@ import shutil
 import json
 from io import StringIO
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -161,13 +162,6 @@ def clasificar_segmento(segmento):
 PUERTO   = 'COM3'
 BAUDRATE = 921600
 
-try:
-    ser = serial.Serial(PUERTO, BAUDRATE, timeout=1)
-    print(f"✅ Puerto {PUERTO} abierto")
-except Exception as e:
-    ser = None
-    print(f"⚠️  Serial no disponible: {e}")
-
 FS       = 1000
 VENTANA  = 5
 MUESTRAS = FS * VENTANA
@@ -183,25 +177,86 @@ carpeta_emg       = os.path.join(BASE_DIR, "static", "emg")
 os.makedirs(carpeta_emg, exist_ok=True)
 
 # ========================
+# SERIAL — CIERRE LIMPIO AL SALIR
+# ========================
+ser      = None
+ser_lock = threading.Lock()
+
+def cerrar_serial():
+    """Libera el puerto al cerrar Flask con Ctrl+C."""
+    global ser
+    with ser_lock:
+        if ser is not None and ser.is_open:
+            try:
+                ser.close()
+                print(f"✅ Puerto {PUERTO} cerrado correctamente")
+            except Exception as e:
+                print(f"⚠️  Error al cerrar puerto: {e}")
+
+atexit.register(cerrar_serial)
+
+# ========================
+# CONEXIÓN SERIAL ROBUSTA
+# ========================
+def conectar_serial():
+    """Intenta abrir el puerto serial. Reintenta cada 3s si falla."""
+    global ser
+    while True:
+        with ser_lock:
+            if ser is None or not ser.is_open:
+                try:
+                    if ser is not None:
+                        try:
+                            ser.close()
+                        except:
+                            pass
+                    s   = serial.Serial(PUERTO, BAUDRATE, timeout=1)
+                    ser = s
+                    print(f"✅ Puerto {PUERTO} abierto correctamente")
+                except serial.SerialException as e:
+                    ser = None
+                    print(f"⚠️  No se pudo abrir {PUERTO}: {e} — reintentando en 3s...")
+        time.sleep(3)
+
+# ========================
 # HILO SERIAL
 # ========================
 def leer_serial():
-    if ser is None:
-        return
+    global ser
     while True:
         if pausado:
             time.sleep(0.01)
             continue
-        try:
-            linea = ser.readline().decode().strip()
-            if linea.isdigit():
-                adc     = int(linea)
-                voltaje = adc * VREF / ADC_MAX
-                data_emg.append(voltaje)
-        except:
-            pass
 
-threading.Thread(target=leer_serial, daemon=True).start()
+        with ser_lock:
+            s = ser
+
+        if s is None or not s.is_open:
+            time.sleep(0.1)
+            continue
+
+        try:
+            linea = s.readline().decode("utf-8", errors="ignore").strip()
+            if not linea:
+                continue
+            try:
+                valor   = float(linea)
+                voltaje = valor * VREF / ADC_MAX if valor > 10 else valor
+                data_emg.append(voltaje)
+            except ValueError:
+                pass
+        except serial.SerialException as e:
+            print(f"❌ Error serial: {e} — reconectando...")
+            with ser_lock:
+                try:
+                    ser.close()
+                except:
+                    pass
+                ser = None
+            time.sleep(1)
+        except Exception as e:
+            print(f"❌ Error inesperado en serial: {e}")
+            time.sleep(0.1)
 
 # ========================
 # HILO DE CLASIFICACIÓN PERIÓDICA
@@ -217,6 +272,9 @@ def hilo_clasificacion():
                 daemon=True
             ).start()
 
+# Arranca los tres hilos
+threading.Thread(target=conectar_serial,    daemon=True).start()
+threading.Thread(target=leer_serial,        daemon=True).start()
 threading.Thread(target=hilo_clasificacion, daemon=True).start()
 
 # ========================
@@ -409,22 +467,55 @@ def emg_guardar():
     nombre = request.form.get("nombre")
     if not nombre:
         return jsonify({"error": "Nombre vacío"})
+
     contador_muestras += 1
     nombre_final = f"{nombre}_{contador_muestras}"
     ventana      = list(data_emg)
-    ruta_csv = os.path.join(carpeta_emg, f"{nombre_final}.csv")
-    ruta_png = os.path.join(carpeta_emg, f"{nombre_final}.png")
+    ruta_csv     = os.path.join(carpeta_emg, f"{nombre_final}.csv")
+    ruta_png     = os.path.join(carpeta_emg, f"{nombre_final}.png")
+
+    # ── CSV ──────────────────────────────────────────────
     with open(ruta_csv, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["indice", "voltaje"])
         for i, v in enumerate(ventana):
             writer.writerow([i, v])
-    plt.figure()
-    plt.plot(ventana)
-    plt.ylim(0, 4)
-    plt.title("EMG")
-    plt.savefig(ruta_png)
-    plt.close()
+    print(f"✅ CSV guardado: {ruta_csv}")
+
+    # ── PNG ──────────────────────────────────────────────
+    try:
+        datos_validos = [v for v in ventana if v != 0.0]
+        print(f"   Muestras totales: {len(ventana)} | No-cero: {len(datos_validos)}")
+        print(f"   Max: {max(ventana):.4f} | Min: {min(ventana):.4f}")
+
+        fig, ax = plt.subplots(figsize=(14, 3))
+        ax.plot(ventana, linewidth=0.8, color="#00e5ff")
+        ax.set_ylim(0, 3.5)
+        ax.set_facecolor("#0d1117")
+        fig.patch.set_facecolor("#0d1117")
+        ax.tick_params(colors="white")
+        ax.spines['bottom'].set_color('#334155')
+        ax.spines['left'].set_color('#334155')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.set_title(f"Señal EMG — {nombre_final}", color="white", fontsize=11)
+        ax.set_xlabel("Muestra", color="#94a3b8", fontsize=9)
+        ax.set_ylabel("Voltaje (V)", color="#94a3b8", fontsize=9)
+
+        fig.savefig(ruta_png, dpi=100, bbox_inches="tight",
+                    facecolor=fig.get_facecolor())
+        plt.close(fig)
+
+        if os.path.exists(ruta_png):
+            print(f"✅ PNG guardado: {ruta_png} ({os.path.getsize(ruta_png)} bytes)")
+        else:
+            print(f"❌ PNG NO se creó en: {ruta_png}")
+
+    except Exception as e:
+        print(f"❌ Error generando PNG: {e}")
+        import traceback
+        traceback.print_exc()
+
     return jsonify({"ok": nombre_final})
 
 @app.route("/emg/clasificacion")
@@ -439,6 +530,19 @@ def emg_clasificacion():
 def emg_clases():
     clases = metadata.get("classes", []) if MODELO_CARGADO else []
     return jsonify({"clases": clases})
+
+# ---------- DEBUG (eliminar en producción) ----------
+@app.route("/emg/debug")
+def emg_debug():
+    muestra = list(data_emg)
+    return jsonify({
+        "serial_disponible": ser is not None,
+        "pausado":           pausado,
+        "primeros_10":       muestra[:10],
+        "max":               max(muestra),
+        "min":               min(muestra),
+        "todos_cero":        all(v == 0.0 for v in muestra)
+    })
 
 # ---------- IA ----------
 @app.route("/entrenar")
@@ -464,8 +568,9 @@ def modelo_view():
         return redirect(url_for("login"))
     return render_template("vistaModelo.html")
 
+# ---------- CSV COMBINAR ----------
 @app.route("/csv", methods=["GET", "POST"])
-def csv():
+def csv_route():
     if not login_required():
         return redirect(url_for("login"))
 
@@ -474,7 +579,7 @@ def csv():
 
         if not archivos or all(f.filename == "" for f in archivos):
             flash("No se seleccionaron archivos")
-            return redirect(url_for("csv_combinar"))
+            return redirect(url_for("csv_route"))
 
         combined = []
         header   = None
@@ -490,15 +595,11 @@ def csv():
             if header is None:
                 header = filas[0]
                 combined.append(header)
-            combined.extend(filas[1:])  # omite header de archivos subsecuentes
+            combined.extend(filas[1:])
 
         if not combined:
             flash("No se pudo leer ningún archivo CSV válido")
-            return redirect(url_for("csv_combinar"))
-
-        # Generar el CSV combinado en memoria y enviarlo como descarga
-        from io import StringIO
-        from flask import Response
+            return redirect(url_for("csv_route"))
 
         salida = StringIO()
         writer = csv.writer(salida)
@@ -512,13 +613,13 @@ def csv():
 
     return render_template("csv.html")
 
-#-----------AQUISICIONES GUARDADAS----
+# ---------- HISTORIAL ----------
 @app.route("/historial")
 def historial():
     if not login_required():
         return redirect(url_for("login"))
 
-    carpeta = os.path.join(BASE_DIR, "static", "emg")
+    carpeta  = os.path.join(BASE_DIR, "static", "emg")
     archivos = []
 
     if os.path.exists(carpeta):
@@ -538,7 +639,23 @@ def historial():
 
     return render_template("historial.html", archivos=archivos)
 
-#----EXTRAER CARACTERÍSTICAS
+# ---------- ELIMINAR MUESTRA (independiente por archivo) ----------
+@app.route("/historial/eliminar/<nombre>", methods=["POST"])
+def eliminar_muestra(nombre):
+    if not login_required():
+        return jsonify({"error": "No autorizado"}), 401
+
+    nombre  = os.path.basename(nombre)
+    carpeta = os.path.join(BASE_DIR, "static", "emg")
+    ruta    = os.path.join(carpeta, nombre)
+
+    if os.path.exists(ruta):
+        os.remove(ruta)
+        return jsonify({"ok": True})
+    else:
+        return jsonify({"error": "Archivo no encontrado"}), 404
+
+# ---------- EXTRAER CARACTERÍSTICAS ----------
 @app.route("/extraer", methods=["GET", "POST"])
 def extraer():
     if not login_required():
@@ -551,12 +668,9 @@ def extraer():
             flash("No se seleccionaron archivos")
             return redirect(url_for("extraer"))
 
-        from io import StringIO
-        from flask import Response
-
-        salida  = StringIO()
-        writer  = csv.writer(salida)
-        writer.writerow(["archivo", "WL", "RMS", "MAV", "WAMP"])  # header
+        salida = StringIO()
+        writer = csv.writer(salida)
+        writer.writerow(["archivo", "WL", "RMS", "MAV", "WAMP"])
 
         for f in archivos:
             if not f.filename.endswith(".csv"):
@@ -566,9 +680,7 @@ def extraer():
                 reader    = csv.reader(contenido)
                 filas     = list(reader)
 
-                # Saltar header, tomar columna de voltaje (índice 1)
                 voltajes = [float(fila[1]) for fila in filas[1:] if len(fila) >= 2]
-
                 if not voltajes:
                     continue
 
@@ -584,7 +696,8 @@ def extraer():
                 print(f"Error procesando {f.filename}: {e}")
                 continue
 
-        if not salida.getvalue().strip().splitlines()[1:]:  # solo header = sin datos
+        lineas = salida.getvalue().strip().splitlines()
+        if len(lineas) <= 1:
             flash("No se pudieron extraer características de los archivos")
             return redirect(url_for("extraer"))
 
@@ -596,15 +709,13 @@ def extraer():
 
     return render_template("extraer.html")
 
-#----Modelo
-from rutas.modelo    import modelo_bp
+# ---------- MODELO BLUEPRINT ----------
+from rutas.modelo import modelo_bp
 app.register_blueprint(modelo_bp)
-
-#----ANALISIS
-
 
 # ========================
 # MAIN
 # ========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    # use_reloader=False evita el doble proceso que bloquea el puerto serial
+    app.run(debug=True, use_reloader=False)
