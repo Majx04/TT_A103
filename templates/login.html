@@ -2,50 +2,93 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>TT A103</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+  <title>TT A103 – Iniciar Sesión</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
 
-  <div class="login-container">
+  <div class="page-bg">
     <div class="login-card">
 
-      <h1>
-        Diseño y construcción de prototipo de prótesis dedal
-        infantil mioeléctrica controlada por Inteligencia
-        Artificial mediante señales EMG
-      </h1>
+      <!-- Encabezado institucional -->
+      <header class="card-header">
+        <div class="shield shield-ipn">
+          <img src="{{ url_for('static', filename='ipn.png') }}" alt="Escudo IPN" class="shield-img">
+        </div>
+        <div class="header-center">
+          <p class="header-sup">Instituto Politécnico Nacional</p>
+          <h2 class="header-school">Escuela Superior de Cómputo</h2>
+          <p class="header-sub">ESCOM · Unidad Zacatenco</p>
+        </div>
+        <div class="shield shield-escom">
+          <img src="{{ url_for('static', filename='escom.png') }}" alt="Escudo ESCOM" class="shield-img">
+        </div>
+      </header>
 
-      <h3>Iniciar Sesión</h3>
+      <div class="tricolor-stripe"></div>
 
-      <form action="#" method="POST">
+      <!-- Cuerpo del formulario -->
+      <main class="card-body">
 
-        <div class="form-group">
-          <label for="username">Usuario</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            placeholder="Ingrese su usuario"
-            required>
+        <div class="tt-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Trabajo Terminal &nbsp;·&nbsp; TT A103
         </div>
 
-        <div class="form-group">
-          <label for="password">Contraseña</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="Ingrese su contraseña"
-            required>
+        <div class="project-title">
+          <p>Diseño y construcción de prototipo de prótesis dedal infantil mioeléctrica controlada por Inteligencia Artificial mediante señales EMG</p>
         </div>
 
-        <button type="submit">Ingresar</button>
+        <div class="divider"></div>
 
-      </form>
+        <h3 class="form-heading">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Iniciar sesión
+        </h3>
 
+        <form action="#" method="POST">
+
+          <div class="form-group">
+            <label for="username">Usuario</label>
+            <div class="input-wrap">
+              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Ingrese su usuario"
+                required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Contraseña</label>
+            <div class="input-wrap">
+              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Ingrese su contraseña"
+                required>
+            </div>
+          </div>
+
+          <button type="submit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Ingresar
+          </button>
+
+        </form>
+
+        <p class="footer-note">Sistema de acceso restringido &nbsp;·&nbsp; IPN – ESCOM &nbsp;·&nbsp; 2025</p>
+
+      </main>
     </div>
   </div>
 

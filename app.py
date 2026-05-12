@@ -9,6 +9,8 @@ import time
 import pickle
 import shutil
 import json
+from scipy import signal as scipy_signal
+from scipy.fft import fft, fftfreq
 from io import StringIO
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
@@ -462,11 +464,17 @@ def emg_toggle():
 @app.route("/emg/guardar", methods=["POST"])
 def emg_guardar():
     global contador_muestras
+    print(">>> form data:", dict(request.form))
     if not pausado:
         return jsonify({"error": "Debes pausar antes de guardar"})
-    nombre = request.form.get("nombre")
+
+    nombre = request.form.get("nombre", "").strip()
+    label  = request.form.get("label",  "").strip()
+
     if not nombre:
         return jsonify({"error": "Nombre vacío"})
+    if not label:
+        return jsonify({"error": "Selecciona una etiqueta"})
 
     contador_muestras += 1
     nombre_final = f"{nombre}_{contador_muestras}"
@@ -477,9 +485,9 @@ def emg_guardar():
     # ── CSV ──────────────────────────────────────────────
     with open(ruta_csv, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["indice", "voltaje"])
+        writer.writerow(["indice", "voltaje", "label"])
         for i, v in enumerate(ventana):
-            writer.writerow([i, v])
+            writer.writerow([i, v, label])
     print(f"✅ CSV guardado: {ruta_csv}")
 
     # ── PNG ──────────────────────────────────────────────
@@ -498,7 +506,7 @@ def emg_guardar():
         ax.spines['left'].set_color('#334155')
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.set_title(f"Señal EMG — {nombre_final}", color="white", fontsize=11)
+        ax.set_title(f"Señal EMG — {nombre_final} [{label}]", color="white", fontsize=11)
         ax.set_xlabel("Muestra", color="#94a3b8", fontsize=9)
         ax.set_ylabel("Voltaje (V)", color="#94a3b8", fontsize=9)
 
@@ -569,49 +577,21 @@ def modelo_view():
     return render_template("vistaModelo.html")
 
 # ---------- CSV COMBINAR ----------
-@app.route("/csv", methods=["GET", "POST"])
+
+@app.route("/csv", methods=["GET"])
 def csv_route():
     if not login_required():
         return redirect(url_for("login"))
 
-    if request.method == "POST":
-        archivos = request.files.getlist("archivos")
+    carpeta  = os.path.join(BASE_DIR, "static", "emg")
+    archivos = []
 
-        if not archivos or all(f.filename == "" for f in archivos):
-            flash("No se seleccionaron archivos")
-            return redirect(url_for("csv_route"))
+    if os.path.exists(carpeta):
+        for nombre in sorted(os.listdir(carpeta)):
+            if nombre.endswith(".csv"):
+                archivos.append({"nombre": nombre})
 
-        combined = []
-        header   = None
-
-        for f in archivos:
-            if not f.filename.endswith(".csv"):
-                continue
-            contenido = f.read().decode("utf-8").splitlines()
-            reader    = csv.reader(contenido)
-            filas     = list(reader)
-            if not filas:
-                continue
-            if header is None:
-                header = filas[0]
-                combined.append(header)
-            combined.extend(filas[1:])
-
-        if not combined:
-            flash("No se pudo leer ningún archivo CSV válido")
-            return redirect(url_for("csv_route"))
-
-        salida = StringIO()
-        writer = csv.writer(salida)
-        writer.writerows(combined)
-
-        return Response(
-            salida.getvalue(),
-            mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=combinado.csv"}
-        )
-
-    return render_template("csv.html")
+    return render_template("csv.html", archivos=archivos)
 
 # ---------- HISTORIAL ----------
 @app.route("/historial")
@@ -656,44 +636,233 @@ def eliminar_muestra(nombre):
         return jsonify({"error": "Archivo no encontrado"}), 404
 
 # ---------- EXTRAER CARACTERÍSTICAS ----------
+# ── Reemplaza la ruta /extraer en app.py ─────────────────
+# Añade al inicio de app.py si no están:
+#   from scipy import signal as scipy_signal
+#   from scipy.fft import fft, fftfreq
+
+from scipy import signal as scipy_signal
+from scipy.fft import fft, fftfreq
+
+# ── Config ────────────────────────────────────────────────
+WINDOW_SIZE = 200
+STEP        = 50
+THRESHOLD   = 0.01
+FS          = 1000
+BAND_LOW    = (0,   60)
+BAND_MID    = (60,  150)
+BAND_HIGH   = (150, 500)
+
+# ── Funciones temporales ──────────────────────────────────
+def feat_MAV(sig):
+    return float(np.mean(np.abs(sig)))
+
+def feat_WL(sig):
+    return float(np.sum(np.abs(np.diff(sig))))
+
+def feat_WAMP(sig, thr=THRESHOLD):
+    return int(np.sum(np.abs(np.diff(sig)) > thr))
+
+def feat_VAR(sig):
+    return float(np.var(sig))
+
+def feat_SNR(sig):
+    mean_sig = np.mean(sig)
+    noise    = np.var(sig - mean_sig)
+    return float(10 * np.log10(mean_sig**2 / noise)) if noise > 0 else 0.0
+
+def feat_ZC(sig, thr=THRESHOLD):
+    signs     = np.sign(sig)
+    crossings = np.where(np.diff(signs) != 0)[0]
+    return int(np.sum(np.abs(np.diff(sig)[crossings]) > thr))
+
+def feat_SSC(sig, thr=THRESHOLD):
+    d1 = np.diff(sig[:-1]); d2 = np.diff(sig[1:])
+    return int(np.sum(((d1 * d2) < 0) & ((np.abs(d1) > thr) | (np.abs(d2) > thr))))
+
+def feat_LOG(sig):
+    a = np.abs(sig); a = np.where(a < 1e-10, 1e-10, a)
+    return float(np.exp(np.mean(np.log(a))))
+
+def feat_SSI(sig):
+    return float(np.sum(sig ** 2))
+
+# ── Funciones frecuenciales ───────────────────────────────
+def _spectrum(sig):
+    freqs = fftfreq(len(sig), d=1/FS)
+    power = np.abs(fft(sig)) ** 2
+    h = len(freqs) // 2
+    return freqs[:h], power[:h]
+
+def feat_MedFreq(sig):
+    freqs, power = _spectrum(sig)
+    cum = np.cumsum(power); total = cum[-1]
+    if total == 0: return 0.0
+    return float(freqs[min(np.searchsorted(cum, total/2), len(freqs)-1)])
+
+def feat_MeanFreq(sig):
+    freqs, power = _spectrum(sig)
+    total = np.sum(power)
+    return float(np.sum(freqs * power) / total) if total > 0 else 0.0
+
+def feat_SpectralEntropy(sig):
+    _, power = _spectrum(sig)
+    total = np.sum(power)
+    if total == 0: return 0.0
+    p = power / total; p = p[p > 0]
+    return float(-np.sum(p * np.log2(p)))
+
+def feat_SpectralKurtosis(sig):
+    freqs, power = _spectrum(sig)
+    total = np.sum(power)
+    if total == 0: return 0.0
+    p = power / total
+    mf = np.sum(freqs * p)
+    sf = np.sqrt(np.sum(((freqs - mf)**2) * p))
+    return float(np.sum(((freqs - mf)**4) * p) / sf**4) if sf > 0 else 0.0
+
+def feat_TopFreqs(sig, n=5):
+    freqs, power = _spectrum(sig)
+    idx = np.argsort(power)[::-1][:n]
+    result = list(freqs[idx])
+    while len(result) < n: result.append(0.0)
+    return result
+
+def feat_E_Total(sig):
+    _, power = _spectrum(sig); return float(np.sum(power))
+
+def feat_band_energy(sig, f_low, f_high):
+    freqs, power = _spectrum(sig)
+    return float(np.sum(power[(freqs >= f_low) & (freqs < f_high)]))
+
+def feat_TFR(sig):
+    _, _, Zxx = scipy_signal.stft(sig, fs=FS, nperseg=min(64, len(sig)//2))
+    mag = np.abs(Zxx)
+    pn  = mag / (np.sum(mag) + 1e-10)
+    return float(np.mean(mag**2)), float(np.max(mag**2)), float(-np.sum(pn * np.log(pn + 1e-10)))
+
+# ── Ruta Flask ────────────────────────────────────────────
 @app.route("/extraer", methods=["GET", "POST"])
 def extraer():
     if not login_required():
         return redirect(url_for("login"))
 
     if request.method == "POST":
-        archivos = request.files.getlist("archivos")
+        archivos          = request.files.getlist("archivos")
+        features_pedidas  = set(request.form.getlist("features"))  # features seleccionadas
 
         if not archivos or all(f.filename == "" for f in archivos):
             flash("No se seleccionaron archivos")
             return redirect(url_for("extraer"))
 
+        if not features_pedidas:
+            flash("Selecciona al menos una característica")
+            return redirect(url_for("extraer"))
+
+        # Orden canónico de columnas (solo las seleccionadas)
+        TODAS = [
+            "MAV", "WL", "WAMP", "VAR", "SNR",
+            "ZC", "SSC", "LOG", "SSI",
+            "MedFreq", "MeanFreq", "SpectralEntropy", "SpectralKurtosis",
+            "TopFreq1", "TopFreq2", "TopFreq3", "TopFreq4", "TopFreq5",
+            "E_Total", "E_Low", "E_Mid", "E_High",
+            "R_Low", "R_Mid", "R_High", "R_HighLow",
+            "TFR_MeanEnergy", "TFR_MaxEnergy", "TFR_Entropy",
+            "label"
+        ]
+
+        # Las top5 se agrupan bajo "TopFreqs" en el form pero se expanden a 5 cols
+        def col_activa(col):
+            if col in ("TopFreq1","TopFreq2","TopFreq3","TopFreq4","TopFreq5"):
+                return "TopFreqs" in features_pedidas
+            if col == "label":
+                return True
+            return col in features_pedidas
+
+        columnas = [c for c in TODAS if col_activa(c)]
+
         salida = StringIO()
         writer = csv.writer(salida)
-        writer.writerow(["archivo", "WL", "RMS", "MAV", "WAMP"])
+        writer.writerow(columnas)
 
         for f in archivos:
             if not f.filename.endswith(".csv"):
                 continue
             try:
                 contenido = f.read().decode("utf-8").splitlines()
-                reader    = csv.reader(contenido)
+                reader    = csv.DictReader(contenido)
                 filas     = list(reader)
-
-                voltajes = [float(fila[1]) for fila in filas[1:] if len(fila) >= 2]
-                if not voltajes:
+                if not filas:
                     continue
 
-                seg  = np.array(voltajes, dtype=np.float64)
-                WL   = float(np.sum(np.abs(np.diff(seg))))
-                RMS  = float(np.sqrt(np.mean(seg ** 2)))
-                MAV  = float(np.mean(np.abs(seg)))
-                WAMP = int(np.sum(np.abs(np.diff(seg)) > 0.01))
+                col_volt  = next((c for c in filas[0] if c.strip().lower() == "voltaje"), None)
+                col_label = next((c for c in filas[0] if c.strip().lower() == "label"),   None)
+                if col_volt is None:
+                    continue
 
-                writer.writerow([f.filename, WL, RMS, MAV, WAMP])
+                voltajes, etiquetas = [], []
+                for fila in filas:
+                    try:
+                        voltajes.append(float(fila[col_volt]))
+                        etiquetas.append(fila[col_label].strip() if col_label else "")
+                    except (ValueError, KeyError):
+                        pass
+
+                if len(voltajes) < WINDOW_SIZE:
+                    continue
+
+                sig_full = np.array(voltajes, dtype=np.float64)
+
+                for i in range(0, len(sig_full) - WINDOW_SIZE, STEP):
+                    w        = sig_full[i:i + WINDOW_SIZE]
+                    w_labels = etiquetas[i:i + WINDOW_SIZE]
+
+                    # Calcular todo (solo se escribe lo seleccionado)
+                    e_total = feat_E_Total(w)
+                    e_low   = feat_band_energy(w, *BAND_LOW)
+                    e_mid   = feat_band_energy(w, *BAND_MID)
+                    e_high  = feat_band_energy(w, *BAND_HIGH)
+                    tfr_mean, tfr_max, tfr_e = feat_TFR(w)
+                    top5 = feat_TopFreqs(w)
+
+                    from collections import Counter
+                    label = Counter(w_labels).most_common(1)[0][0] if w_labels else ""
+
+                    todas_vals = {
+                        "MAV":              feat_MAV(w),
+                        "WL":               feat_WL(w),
+                        "WAMP":             feat_WAMP(w),
+                        "VAR":              feat_VAR(w),
+                        "SNR":              feat_SNR(w),
+                        "ZC":               feat_ZC(w),
+                        "SSC":              feat_SSC(w),
+                        "LOG":              feat_LOG(w),
+                        "SSI":              feat_SSI(w),
+                        "MedFreq":          feat_MedFreq(w),
+                        "MeanFreq":         feat_MeanFreq(w),
+                        "SpectralEntropy":  feat_SpectralEntropy(w),
+                        "SpectralKurtosis": feat_SpectralKurtosis(w),
+                        "TopFreq1": top5[0], "TopFreq2": top5[1],
+                        "TopFreq3": top5[2], "TopFreq4": top5[3], "TopFreq5": top5[4],
+                        "E_Total":       e_total,
+                        "E_Low":         e_low,
+                        "E_Mid":         e_mid,
+                        "E_High":        e_high,
+                        "R_Low":         e_low  / e_total if e_total > 0 else 0,
+                        "R_Mid":         e_mid  / e_total if e_total > 0 else 0,
+                        "R_High":        e_high / e_total if e_total > 0 else 0,
+                        "R_HighLow":     e_high / e_low   if e_low   > 0 else 0,
+                        "TFR_MeanEnergy": tfr_mean,
+                        "TFR_MaxEnergy":  tfr_max,
+                        "TFR_Entropy":    tfr_e,
+                        "label":          label,
+                    }
+
+                    writer.writerow([todas_vals[c] for c in columnas])
 
             except Exception as e:
                 print(f"Error procesando {f.filename}: {e}")
+                import traceback; traceback.print_exc()
                 continue
 
         lineas = salida.getvalue().strip().splitlines()
@@ -712,6 +881,8 @@ def extraer():
 # ---------- MODELO BLUEPRINT ----------
 from rutas.modelo import modelo_bp
 app.register_blueprint(modelo_bp)
+
+
 
 # ========================
 # MAIN

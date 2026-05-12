@@ -5,7 +5,404 @@
     <meta charset="UTF-8">
     <title>TT A-103</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='csv.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <style>
+        /* ══════════════════════════════════════════
+           VARIABLES
+        ══════════════════════════════════════════ */
+        :root {
+            --bg:      #0d1117;
+            --surface: #161b22;
+            --border:  #30363d;
+            --muted:   #8b949e;
+            --text:    #e6edf3;
+            --accent:  #00e5ff;
+            --green:   #3fb950;
+            --red:     #f85149;
+            --yellow:  #d29922;
+        }
+
+        /* ══════════════════════════════════════════
+           1. CONFIGURACIÓN BASE
+        ══════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ══════════════════════════════════════════
+           2. NAVEGACIÓN
+        ══════════════════════════════════════════ */
+        .navbar {
+            background: #2c2c2c;
+            color: white;
+            display: flex;
+            justify-content: right;
+            align-items: center;
+            padding: 15px 5%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .menu a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 15px;
+            transition: color 0.3s;
+        }
+
+        .menu a:hover { color: #007bff; }
+
+        /* ══════════════════════════════════════════
+           3. MAIN / CONTENEDOR PRINCIPAL
+        ══════════════════════════════════════════ */
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 30px 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 860px;
+        }
+
+        /* ══════════════════════════════════════════
+           4. TIPOGRAFÍA Y FORMULARIO BASE
+        ══════════════════════════════════════════ */
+        h2 {
+            color: #1a73e8;
+            margin-bottom: 8px;
+            font-size: 1.7rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subtitulo {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 28px;
+        }
+
+        /* Regla global de botones del CSS original — se sobreescribe
+           en componentes específicos más abajo */
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            transition: background 0.3s;
+        }
+
+        button:hover  { background-color: #1557b0; }
+
+        /* ══════════════════════════════════════════
+           5. FOOTER
+        ══════════════════════════════════════════ */
+        .footer {
+            background: #003b4a;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9rem;
+        }
+
+        /* ══════════════════════════════════════════
+           6. UPLOAD LABEL PERSONALIZADO
+        ══════════════════════════════════════════ */
+        .input-contenedor-limpio {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 0 10px;
+            width: 100%;
+        }
+
+        #file-upload { display: none; }
+
+        .boton-archivo-personalizado {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 20px 24px;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            color: #555;
+            border: 2px dashed #cbd5e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-align: center;
+            width: 100%;
+        }
+
+        .boton-archivo-personalizado i { font-size: 22px; color: #94a3b8; }
+
+        .boton-archivo-personalizado:hover {
+            background-color: #edf2ff;
+            border-color: #1a73e8;
+            color: #1a73e8;
+            transform: translateY(-2px);
+        }
+
+        .boton-archivo-personalizado:hover i { color: #1a73e8; }
+        .boton-archivo-personalizado:active  { transform: scale(0.98); }
+
+        /* ══════════════════════════════════════════
+           7. GRID DOS COLUMNAS
+        ══════════════════════════════════════════ */
+        .dos-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 600px) { .dos-col { grid-template-columns: 1fr; } }
+
+        .col-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            background: #f8fafc;
+        }
+
+        .col-card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a73e8;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        /* ══════════════════════════════════════════
+           8. LISTA CSV DEL HISTORIAL
+        ══════════════════════════════════════════ */
+        .sel-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .sel-btn {
+            font-size: 11px;
+            font-family: inherit;
+            color: #64748b;
+            background: white;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: color .15s, border-color .15s;
+            /* Anula el estilo global de button */
+            background-color: white;
+            font-size: 11px;
+        }
+
+        .sel-btn:hover {
+            color: #1a73e8;
+            border-color: #1a73e8;
+            background-color: white;
+        }
+
+        .csv-list {
+            max-height: 210px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .csv-list::-webkit-scrollbar { width: 4px; }
+        .csv-list::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 2px; }
+
+        .csv-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #475569;
+            border: 1px solid transparent;
+            transition: background .15s;
+            user-select: none;
+            background: white;
+        }
+
+        .csv-item:hover { background: #edf2ff; color: #1a73e8; }
+
+        .csv-item.sel {
+            background: #edf2ff;
+            border-color: #93c5fd;
+            color: #1a73e8;
+        }
+
+        .csv-item input[type="checkbox"] {
+            accent-color: #1a73e8;
+            width: 14px; height: 14px;
+            flex-shrink: 0; cursor: pointer;
+        }
+
+        .csv-item-name {
+            flex: 1; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        .empty-msg {
+            font-size: 13px;
+            color: #94a3b8;
+            padding: 14px 4px;
+            text-align: center;
+        }
+
+        /* ══════════════════════════════════════════
+           9. ARCHIVOS PC LISTADOS
+        ══════════════════════════════════════════ */
+        .pc-files {
+            display: flex; flex-direction: column; gap: 4px;
+            max-height: 110px; overflow-y: auto;
+        }
+
+        .pc-file {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 10px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            font-size: 12px; color: #475569;
+        }
+
+        .pc-file span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .pc-file button {
+            background: none;
+            background-color: transparent;
+            border: none;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0 2px;
+            transition: color .15s;
+        }
+
+        .pc-file button:hover { background-color: transparent; color: #dc2626; }
+
+        /* ══════════════════════════════════════════
+           10. FOOTER DEL FORMULARIO
+        ══════════════════════════════════════════ */
+        .form-footer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .name-wrap {
+            flex: 1;
+            min-width: 180px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .name-wrap label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .name-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e0;
+            border-radius: 7px;
+            font-family: inherit;
+            font-size: 14px;
+            color: #1e293b;
+            outline: none;
+            transition: border-color .2s;
+        }
+
+        .name-input:focus  { border-color: #1a73e8; }
+        .name-input::placeholder { color: #94a3b8; }
+
+        .counter {
+            font-size: 13px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .counter span { color: #1a73e8; font-weight: 700; }
+
+        /* Botón principal — hereda colores del sistema */
+        .btn-combine {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-family: inherit;
+            transition: background 0.3s, transform .1s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn-combine:hover  { background-color: #1557b0; }
+        .btn-combine:active { transform: scale(0.97); }
+        .btn-combine:disabled {
+            background-color: #93c5fd;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ══════════════════════════════════════════
+           11. TOAST
+        ══════════════════════════════════════════ */
+        #toast {
+            position: fixed; bottom: 28px; right: 28px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 18px;
+            font-size: 13px; color: #1e293b;
+            opacity: 0; transform: translateY(12px);
+            transition: opacity .28s, transform .28s;
+            pointer-events: none; z-index: 999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+
+        #toast.show { opacity: 1; transform: translateY(0); }
+        #toast.ok   { border-left: 4px solid #22c55e; }
+        #toast.err  { border-left: 4px solid #ef4444; }
+    </style>
 </head>
 
 <body>
@@ -13,40 +410,93 @@
 <header class="navbar">
     <div class="logo"></div>
     <nav class="menu">
+        <a href="{{ url_for('modelo_view') }}">Regresar</a>
         <a href="{{ url_for('home') }}">Inicio</a>
         <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
     </nav>
 </header>
-<main class="contenido">
+
+<main>
     <div class="container">
-        <h2>Seleccione los archivos CSV que desea combinar</h2>
 
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <p class="flash">{{ message }}</p>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+        <h2><i class="fas fa-layer-group"></i> Combinar archivos CSV</h2>
+        <p class="subtitulo">Selecciona archivos del historial, sube desde tu computadora, o ambos.</p>
 
-        <form action="{{ url_for('csv_route') }}" method="post" enctype="multipart/form-data">
-            <div class="input-contenedor-limpio">
-    <label for="file-upload" class="boton-archivo-personalizado">
-        <i class="fas fa-cloud-upload-alt"></i> Seleccionar archivos CSV
-    </label>
-    <input id="file-upload" type="file" name="archivos" multiple accept=".csv" required />
-</div>
-            <button type="submit">Combinar y Descargar</button>
-        </form>
-        <br>
-        <a href="/modelo" class="volver-link">← Regresar</a>
+        <div class="dos-col">
+
+            <!-- Columna izquierda: historial -->
+            <div class="col-card">
+                <div class="col-card-title">
+                    <i class="fas fa-history"></i> Del historial de adquisición
+                </div>
+
+                <div class="sel-actions">
+                    <button class="sel-btn" onclick="selTodos(true)">Seleccionar todo</button>
+                    <button class="sel-btn" onclick="selTodos(false)">Limpiar</button>
+                </div>
+
+                <div class="csv-list" id="csvList">
+                    {% if archivos %}
+                        {% for a in archivos %}
+                        <label class="csv-item">
+                            <input type="checkbox" class="hist-cb"
+                                   value="{{ a.nombre }}"
+                                   onchange="onCb(this)">
+                            <i class="fas fa-file-csv" style="color:#22c55e;font-size:12px;flex-shrink:0"></i>
+                            <span class="csv-item-name">{{ a.nombre }}</span>
+                        </label>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-msg">
+                            <i class="fas fa-folder-open" style="font-size:22px;display:block;margin-bottom:6px;color:#cbd5e0"></i>
+                            No hay CSV guardados en el historial
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Columna derecha: subir desde PC -->
+            <div class="col-card">
+                <div class="col-card-title">
+                    <i class="fas fa-laptop"></i> Desde tu computadora
+                </div>
+
+                <div class="input-contenedor-limpio">
+                    <label class="boton-archivo-personalizado" for="file-upload">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        Arrastra CSV aquí o haz clic para seleccionar
+                    </label>
+                    <input id="file-upload" type="file" accept=".csv" multiple
+                           onchange="onFilesSelected(this.files)">
+                </div>
+
+                <div class="pc-files" id="pcFiles"></div>
+            </div>
+        </div>
+
+        <!-- Footer del formulario -->
+        <div class="form-footer">
+            <div class="name-wrap">
+                <label for="outName">Nombre del archivo resultado</label>
+                <input class="name-input" id="outName" type="text"
+                       placeholder="ej: dataset_final">
+            </div>
+            <div class="counter">Seleccionados: <span id="totalSel">0</span></div>
+            <button class="btn-combine" id="btnCombine" onclick="combinar()" disabled>
+                <i class="fas fa-file-export"></i> Combinar y descargar
+            </button>
+        </div>
+
     </div>
-
 </main>
-    <footer class="footer">
+
+<footer class="footer">
     © 2026 TT A - 103. All rights reserved.
 </footer>
 
+<div id="toast"></div>
+
+<script src="{{ url_for('static', filename='js/csv.js') }}"></script>
 
 </body>
 </html>

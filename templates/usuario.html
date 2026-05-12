@@ -19,9 +19,12 @@
 
     <div class="main-container">
         <div class="ficha-card">
+
+            {% if session.get('can_manage') %}
             <button class="btn-edit-float" onclick="openModal()">
                 <i class="fas fa-edit"></i> Editar Información
             </button>
+            {% endif %}
 
             <div class="ficha-header">
                 <div class="profile-pic-container">
@@ -75,6 +78,7 @@
         </div>
     </div>
 
+    {% if session.get('can_manage') %}
     <div id="editModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -143,9 +147,11 @@
         function openModal() { document.getElementById('editModal').style.display = 'flex'; }
         function closeModal() { document.getElementById('editModal').style.display = 'none'; }
     </script>
+    {% endif %}
 
-<footer class="footer">
-    © 2026 TT A - 103. All rights reserved.
-</footer>
+    <footer class="footer">
+        © 2026 TT A - 103. All rights reserved.
+    </footer>
+
 </body>
 </html>

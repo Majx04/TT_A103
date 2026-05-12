@@ -1,54 +1,518 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
     <title>TT A-103</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='csv.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <style>
+        /* ══════════════════════════════════════════
+           BASE
+        ══════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ══════════════════════════════════════════
+           NAVBAR
+        ══════════════════════════════════════════ */
+        .navbar {
+            background: #2c2c2c;
+            color: white;
+            display: flex;
+            justify-content: right;
+            align-items: center;
+            padding: 15px 5%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .menu a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 15px;
+            transition: color 0.3s;
+        }
+
+        .menu a:hover { color: #007bff; }
+
+        /* ══════════════════════════════════════════
+           MAIN
+        ══════════════════════════════════════════ */
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 30px 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* ══════════════════════════════════════════
+           HEADER DEL CONTENIDO
+        ══════════════════════════════════════════ */
+        h2 {
+            color: #1a73e8;
+            margin-bottom: 8px;
+            font-size: 1.7rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subtitulo {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-bottom: 28px;
+        }
+
+        /* ══════════════════════════════════════════
+           UPLOAD LABEL
+        ══════════════════════════════════════════ */
+        .input-contenedor-limpio {
+            display: flex;
+            justify-content: center;
+            margin: 0 0 10px;
+            width: 100%;
+        }
+
+        #file-upload { display: none; }
+
+        .boton-archivo-personalizado {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 24px;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            color: #555;
+            border: 2px dashed #cbd5e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-align: center;
+            width: 100%;
+        }
+
+        .boton-archivo-personalizado i { font-size: 24px; color: #94a3b8; }
+
+        .boton-archivo-personalizado:hover {
+            background-color: #edf2ff;
+            border-color: #1a73e8;
+            color: #1a73e8;
+            transform: translateY(-2px);
+        }
+
+        .boton-archivo-personalizado:hover i { color: #1a73e8; }
+        .boton-archivo-personalizado:active  { transform: scale(0.98); }
+
+        /* ══════════════════════════════════════════
+           FILES PREVIEW
+        ══════════════════════════════════════════ */
+        .files-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+            margin-bottom: 4px;
+        }
+
+        .file-tag {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #475569;
+        }
+
+        .file-tag i { color: #22c55e; font-size: 12px; flex-shrink: 0; }
+
+        /* ══════════════════════════════════════════
+           SELECTOR DE FEATURES
+        ══════════════════════════════════════════ */
+        .feat-section {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            background: #f8fafc;
+            margin-bottom: 24px;
+        }
+
+        .feat-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .feat-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a73e8;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .feat-sel-actions { display: flex; gap: 6px; }
+
+        .feat-sel-btn {
+            font-size: 11px;
+            font-family: inherit;
+            color: #64748b;
+            background: white;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: color .15s, border-color .15s;
+        }
+
+        .feat-sel-btn:hover { color: #1a73e8; border-color: #1a73e8; }
+
+        .feat-counter {
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .feat-counter span { color: #1a73e8; font-weight: 700; }
+
+        /* Grupos */
+        .feat-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .feat-group {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        .feat-group-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .feat-group-label i { color: #1a73e8; }
+
+        .feat-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .feat-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 11px;
+            border-radius: 20px;
+            border: 1px solid #cbd5e0;
+            background: #f8fafc;
+            font-size: 12px;
+            color: #475569;
+            cursor: pointer;
+            transition: background .15s, border-color .15s, color .15s;
+            user-select: none;
+        }
+
+        .feat-chip:hover { background: #edf2ff; color: #1a73e8; border-color: #93c5fd; }
+
+        .feat-chip.selected {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1a73e8;
+            font-weight: 600;
+        }
+
+        .feat-chip input[type="checkbox"] {
+            accent-color: #1a73e8;
+            width: 12px; height: 12px;
+            flex-shrink: 0; cursor: pointer;
+        }
+
+        /* ══════════════════════════════════════════
+           FLASH
+        ══════════════════════════════════════════ */
+        .flash {
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #dc2626;
+            margin-bottom: 16px;
+        }
+
+        /* ══════════════════════════════════════════
+           FORM FOOTER
+        ══════════════════════════════════════════ */
+        .form-footer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .counter {
+            font-size: 13px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .counter span { color: #1a73e8; font-weight: 700; }
+
+        .btn-extraer {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-family: inherit;
+            transition: background 0.3s, transform .1s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .btn-extraer:hover  { background-color: #1557b0; }
+        .btn-extraer:active { transform: scale(0.97); }
+        .btn-extraer:disabled { background-color: #93c5fd; cursor: not-allowed; transform: none; }
+
+        .volver-link {
+            font-size: 13px;
+            color: #64748b;
+            text-decoration: none;
+            transition: color .2s;
+            margin-left: auto;
+        }
+
+        .volver-link:hover { color: #1a73e8; }
+
+        /* ══════════════════════════════════════════
+           FOOTER
+        ══════════════════════════════════════════ */
+        .footer {
+            background: #003b4a;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9rem;
+        }
+    </style>
 </head>
+
 <body>
 
 <header class="navbar">
     <div class="logo"></div>
     <nav class="menu">
+        <a href="{{ url_for('modelo_view') }}">Regresar</a>
         <a href="{{ url_for('home') }}">Inicio</a>
         <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
     </nav>
 </header>
 
-<main class="contenido">
+<main>
     <div class="container">
-        <h2>Extraer características de archivos CSV</h2>
-        <p style="color:#64748b; margin-bottom:16px; font-size:14px;">
-            Carga uno o varios CSV de señal EMG. Se calcularán WL, RMS, MAV y WAMP por archivo.
+
+        <h2><i class="fas fa-flask"></i> Extraer características EMG</h2>
+        <p class="subtitulo">
+            Carga uno o varios CSV con columnas <strong>voltaje</strong> y <strong>label</strong>.
+            Selecciona las características que deseas extraer por ventana deslizante.
         </p>
 
         {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <p class="flash">{{ message }}</p>
-            {% endfor %}
-          {% endif %}
+          {% if messages %}{% for m in messages %}<p class="flash">{{ m }}</p>{% endfor %}{% endif %}
         {% endwith %}
 
-        <form action="{{ url_for('extraer') }}" method="post" enctype="multipart/form-data">
+        <form action="{{ url_for('extraer') }}" method="post"
+              enctype="multipart/form-data" id="extraerForm">
+
+            <!-- Upload -->
             <div class="input-contenedor-limpio">
                 <label for="file-upload" class="boton-archivo-personalizado">
-                    <i class="fas fa-cloud-upload-alt"></i> Seleccionar archivos CSV
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    Arrastra CSV aquí o haz clic para seleccionar
                 </label>
-                <input id="file-upload" type="file" name="archivos" multiple accept=".csv" required />
+                <input id="file-upload" type="file" name="archivos"
+                       multiple accept=".csv" required
+                       onchange="onFilesSelected(this.files)">
             </div>
-            <button type="submit">Extraer y Descargar</button>
+
+            <div class="files-preview" id="filesPreview"></div>
+            <br>
+
+            <!-- Selector de features -->
+            <div class="feat-section">
+                <div class="feat-section-header">
+                    <div class="feat-section-title">
+                        <i class="fas fa-sliders-h"></i> Características a extraer
+                    </div>
+                    <div class="feat-sel-actions">
+                        <button type="button" class="feat-sel-btn" onclick="toggleTodas(true)">Todas</button>
+                        <button type="button" class="feat-sel-btn" onclick="toggleTodas(false)">Ninguna</button>
+                    </div>
+                    <div class="feat-counter">Seleccionadas: <span id="featCount">25</span> / 25</div>
+                </div>
+
+                <div class="feat-groups">
+
+                    <div class="feat-group">
+                        <div class="feat-group-label"><i class="fas fa-clock"></i> Temporales originales</div>
+                        <div class="feat-chips">
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="MAV"  checked onchange="onFeatChange(this)"> MAV</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="WL"   checked onchange="onFeatChange(this)"> WL</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="WAMP" checked onchange="onFeatChange(this)"> WAMP</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="VAR"  checked onchange="onFeatChange(this)"> VAR</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="SNR"  checked onchange="onFeatChange(this)"> SNR</label>
+                        </div>
+                    </div>
+
+                    <div class="feat-group">
+                        <div class="feat-group-label"><i class="fas fa-wave-square"></i> Temporales adicionales</div>
+                        <div class="feat-chips">
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="ZC"  checked onchange="onFeatChange(this)"> ZC</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="SSC" checked onchange="onFeatChange(this)"> SSC</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="LOG" checked onchange="onFeatChange(this)"> LOG</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="SSI" checked onchange="onFeatChange(this)"> SSI</label>
+                        </div>
+                    </div>
+
+                    <div class="feat-group">
+                        <div class="feat-group-label"><i class="fas fa-chart-area"></i> Frecuenciales</div>
+                        <div class="feat-chips">
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="MedFreq"          checked onchange="onFeatChange(this)"> MedFreq</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="MeanFreq"         checked onchange="onFeatChange(this)"> MeanFreq</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="SpectralEntropy"  checked onchange="onFeatChange(this)"> SpectralEntropy</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="SpectralKurtosis" checked onchange="onFeatChange(this)"> SpectralKurtosis</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="TopFreqs"         checked onchange="onFeatChange(this)"> Top 5 Freq</label>
+                        </div>
+                    </div>
+
+                    <div class="feat-group">
+                        <div class="feat-group-label"><i class="fas fa-battery-half"></i> Energía por bandas</div>
+                        <div class="feat-chips">
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="E_Total"   checked onchange="onFeatChange(this)"> E_Total</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="E_Low"     checked onchange="onFeatChange(this)"> E_Low</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="E_Mid"     checked onchange="onFeatChange(this)"> E_Mid</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="E_High"    checked onchange="onFeatChange(this)"> E_High</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="R_Low"     checked onchange="onFeatChange(this)"> R_Low</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="R_Mid"     checked onchange="onFeatChange(this)"> R_Mid</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="R_High"    checked onchange="onFeatChange(this)"> R_High</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="R_HighLow" checked onchange="onFeatChange(this)"> R_HighLow</label>
+                        </div>
+                    </div>
+
+                    <div class="feat-group">
+                        <div class="feat-group-label"><i class="fas fa-th"></i> Tiempo-Frecuencia (TFR / STFT)</div>
+                        <div class="feat-chips">
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="TFR_MeanEnergy" checked onchange="onFeatChange(this)"> TFR_MeanEnergy</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="TFR_MaxEnergy"  checked onchange="onFeatChange(this)"> TFR_MaxEnergy</label>
+                            <label class="feat-chip selected"><input type="checkbox" name="features" value="TFR_Entropy"    checked onchange="onFeatChange(this)"> TFR_Entropy</label>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="form-footer">
+                <div class="counter">Archivos: <span id="fileCount">0</span></div>
+                <div class="counter" style="margin-left:8px">Features: <span id="featCount2">28</span></div>
+                <button type="submit" class="btn-extraer" id="btnExtraer" disabled>
+                    <i class="fas fa-download"></i> Extraer y descargar
+                </button>
+            </div>
+
         </form>
-        <br>
-        <a href="{{ url_for('modelo_view') }}" class="volver-link">← Regresar</a>
     </div>
 </main>
 
 <footer class="footer">
     © 2026 TT A - 103. All rights reserved.
 </footer>
+
+<script>
+const TOTAL = 25;
+
+function onFilesSelected(files) {
+    const preview  = document.getElementById('filesPreview');
+    const count    = document.getElementById('fileCount');
+    const btn      = document.getElementById('btnExtraer');
+    const csvFiles = Array.from(files).filter(f => f.name.endsWith('.csv'));
+
+    preview.innerHTML = '';
+    csvFiles.forEach(f => {
+        const d = document.createElement('div');
+        d.className = 'file-tag';
+        d.innerHTML = `<i class="fas fa-file-csv"></i><span>${f.name}</span>`;
+        preview.appendChild(d);
+    });
+
+    count.textContent = csvFiles.length;
+    btn.disabled = csvFiles.length === 0;
+}
+
+function onFeatChange(cb) {
+    cb.closest('.feat-chip').classList.toggle('selected', cb.checked);
+    actualizarContador();
+}
+
+function toggleTodas(val) {
+    document.querySelectorAll('input[name="features"]').forEach(cb => {
+        cb.checked = val;
+        cb.closest('.feat-chip').classList.toggle('selected', val);
+    });
+    actualizarContador();
+}
+
+function actualizarContador() {
+    const n = document.querySelectorAll('input[name="features"]:checked').length;
+    document.getElementById('featCount').textContent  = n;
+    document.getElementById('featCount2').textContent = n;
+}
+</script>
 
 </body>
 </html>

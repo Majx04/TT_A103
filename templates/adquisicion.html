@@ -6,11 +6,162 @@
     <title>TT A-103</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='adquisicion.css') }}">
+    <style>
+        /* ── HISTOGRAMA ── */
+        .hist-wrap {
+            position: relative;
+            width: 100%;
+            height: 110px;
+            background: #0d1117;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .hist-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .hist-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 4px;
+            padding: 0 2px;
+        }
+
+        .hist-label {
+            font-size: 9px;
+            color: #4a5568;
+            font-family: 'Courier New', monospace;
+        }
+
+        .hist-zone-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .hist-zone {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            color: #8b949e;
+            font-family: 'Courier New', monospace;
+        }
+
+        .hist-zone-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .hist-peak-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #21262d;
+        }
+
+        .hist-peak-item {
+            text-align: center;
+        }
+
+        .hist-peak-label {
+            font-size: 9px;
+            color: #4a5568;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .hist-peak-value {
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            color: #e6edf3;
+            margin-top: 2px;
+        }
+
+        /* ── SELECTOR DE ETIQUETA ── */
+        .label-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .label-btn {
+            flex: 1;
+            padding: 9px 6px;
+            border-radius: 8px;
+            border: 1px solid var(--border, #30363d);
+            background: #21262d;
+            color: #8b949e;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+        }
+
+        .label-btn:hover {
+            background: #2d333b;
+        }
+
+        .label-btn.active-ext {
+            border-color: #00e5ff;
+            color: #00e5ff;
+            background: rgba(0, 229, 255, 0.10);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.20);
+        }
+
+        .label-btn.active-flex {
+            border-color: #ff4081;
+            color: #ff4081;
+            background: rgba(255, 64, 129, 0.10);
+            box-shadow: 0 0 8px rgba(255, 64, 129, 0.20);
+        }
+
+        .label-display {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 10px;
+            color: #4a5568;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .label-display-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #30363d;
+            flex-shrink: 0;
+            transition: background 0.3s;
+        }
+
+        .label-display-val {
+            color: #e6edf3;
+            font-weight: 700;
+            transition: color 0.3s;
+        }
+    </style>
 </head>
 
 <body>
 
-<!-- ── NAVBAR (mismo que home) ── -->
+<!-- ── NAVBAR ── -->
 <header class="navbar">
     <div class="logo"></div>
     <nav class="menu">
@@ -56,25 +207,56 @@
                 </div>
             </div>
 
-            <!-- Stats -->
+            <!-- Histograma de actividad muscular -->
             <div class="panel">
-                <p class="panel-title">Estadísticas</p>
-                <div class="stats-grid">
-                    <div class="stat-box">
-                        <div class="stat-label">Máx (V)</div>
-                        <div class="stat-value" id="statMax">—</div>
+                <p class="panel-title"><i class="fas fa-chart-bar" style="font-size:11px;margin-right:5px;opacity:.7"></i>Histograma de Actividad Muscular</p>
+
+                <div class="hist-wrap">
+                    <canvas class="hist-canvas" id="histCanvas"></canvas>
+                </div>
+
+                <!-- Etiquetas de amplitud -->
+                <div class="hist-labels">
+                    <span class="hist-label">0.0 V</span>
+                    <span class="hist-label">0.8 V</span>
+                    <span class="hist-label">1.6 V</span>
+                    <span class="hist-label">2.5 V</span>
+                    <span class="hist-label">3.3 V</span>
+                </div>
+
+                <!-- Zonas de actividad -->
+                <div class="hist-zone-row">
+                    <div class="hist-zone">
+                        <div class="hist-zone-dot" style="background:#69f0ae"></div>
+                        <span>Reposo</span>
                     </div>
-                    <div class="stat-box">
-                        <div class="stat-label">Mín (V)</div>
-                        <div class="stat-value" id="statMin">—</div>
+                    <div class="hist-zone">
+                        <div class="hist-zone-dot" style="background:#00e5ff"></div>
+                        <span>Baja</span>
                     </div>
-                    <div class="stat-box">
-                        <div class="stat-label">RMS (V)</div>
-                        <div class="stat-value" id="statRms">—</div>
+                    <div class="hist-zone">
+                        <div class="hist-zone-dot" style="background:#ffea00"></div>
+                        <span>Media</span>
                     </div>
-                    <div class="stat-box">
-                        <div class="stat-label">MAV (V)</div>
-                        <div class="stat-value" id="statMav">—</div>
+                    <div class="hist-zone">
+                        <div class="hist-zone-dot" style="background:#ff4081"></div>
+                        <span>Alta</span>
+                    </div>
+                </div>
+
+                <!-- Métricas derivadas del histograma -->
+                <div class="hist-peak-row">
+                    <div class="hist-peak-item">
+                        <div class="hist-peak-label">Moda (V)</div>
+                        <div class="hist-peak-value" id="histModa">—</div>
+                    </div>
+                    <div class="hist-peak-item">
+                        <div class="hist-peak-label">% Activo</div>
+                        <div class="hist-peak-value" id="histActivo">—</div>
+                    </div>
+                    <div class="hist-peak-item">
+                        <div class="hist-peak-label">% Reposo</div>
+                        <div class="hist-peak-value" id="histReposo">—</div>
                     </div>
                 </div>
             </div>
@@ -82,6 +264,21 @@
             <!-- Controles -->
             <div class="panel controls-panel">
                 <p class="panel-title">Controles</p>
+
+                <!-- Selector de etiqueta -->
+                <div class="label-display">
+                    <div class="label-display-dot" id="labelDot"></div>
+                    <span>Label:&nbsp;<span class="label-display-val" id="labelVal">sin selección</span></span>
+                </div>
+                <div class="label-selector">
+                    <button class="label-btn" id="btnExt"  onclick="setLabel('extension')">
+                        <i class="fas fa-hand-point-up" style="margin-right:4px"></i>Extensión
+                    </button>
+                    <button class="label-btn" id="btnFlex" onclick="setLabel('flexion')">
+                        <i class="fas fa-hand-point-down" style="margin-right:4px"></i>Flexión
+                    </button>
+                </div>
+
                 <div class="input-row">
                     <input class="emg-input" id="nombreInput" type="text" placeholder="Nombre base (ej: sujeto1)">
                 </div>
@@ -109,15 +306,17 @@
 
 <script>
 // ── ESTADO ──────────────────────────────────────────────
-let pausado    = false;
-let chartData  = new Array(5000).fill(0);
+let pausado   = false;
+let chartData = new Array(5000).fill(0);
+let labelActual = "";          // "extension" | "flexion" | ""
 const MUESTRAS = 5000;
+const NUM_BINS = 24;      // número de barras del histograma
+const V_MAX    = 3.3;     // tensión máxima del ADC
 
-// Paleta por clase (igual que el clasificador PyTorch)
 const PALETA = ["#00e5ff","#ff4081","#69f0ae","#ffea00","#ff6d00","#d500f9","#00b0ff","#76ff03"];
 let clases = [];
 
-// ── CANVAS ──────────────────────────────────────────────
+// ── EMG CANVAS ──────────────────────────────────────────
 const canvas = document.getElementById("emgCanvas");
 const ctx    = canvas.getContext("2d");
 
@@ -125,30 +324,22 @@ function resizeCanvas() {
     canvas.width  = canvas.parentElement.clientWidth;
     canvas.height = canvas.parentElement.clientHeight || 300;
 }
-
-window.addEventListener("resize", () => { resizeCanvas(); drawChart(); });
+window.addEventListener("resize", () => { resizeCanvas(); drawChart(); resizeHist(); drawHist(); });
 resizeCanvas();
 
 function drawChart() {
     const W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);
-
-    // Fondo
     ctx.fillStyle = "#0d1117";
     ctx.fillRect(0, 0, W, H);
 
-    // Grid horizontal
     ctx.strokeStyle = "#21262d";
     ctx.lineWidth   = 0.8;
     for (let i = 0; i <= 4; i++) {
         const y = H - (i / 4) * H;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     }
 
-    // Señal
     if (chartData.length === 0) return;
     ctx.strokeStyle = "#00e5ff";
     ctx.lineWidth   = 1.2;
@@ -156,10 +347,106 @@ function drawChart() {
     const step = W / (chartData.length - 1);
     for (let i = 0; i < chartData.length; i++) {
         const x = i * step;
-        const y = H - (chartData[i] / 3.3) * H;
+        const y = H - (chartData[i] / V_MAX) * H;
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.stroke();
+}
+
+// ── HISTOGRAMA CANVAS ───────────────────────────────────
+const histCanvas = document.getElementById("histCanvas");
+const hctx       = histCanvas.getContext("2d");
+
+function resizeHist() {
+    histCanvas.width  = histCanvas.parentElement.clientWidth;
+    histCanvas.height = histCanvas.parentElement.clientHeight || 110;
+}
+resizeHist();
+
+// Color por zona de actividad (4 zonas)
+function binColor(binIndex) {
+    const ratio = binIndex / NUM_BINS;
+    if (ratio < 0.15)  return "#69f0ae";  // reposo
+    if (ratio < 0.45)  return "#00e5ff";  // baja
+    if (ratio < 0.75)  return "#ffea00";  // media
+    return "#ff4081";                      // alta
+}
+
+// histCounts suavizados (exponential moving average)
+let smoothCounts = new Array(NUM_BINS).fill(0);
+const ALPHA = 0.25;  // factor de suavizado (0=lento, 1=instantáneo)
+
+function drawHist() {
+    const W = histCanvas.width, H = histCanvas.height;
+    hctx.clearRect(0, 0, W, H);
+
+    // Fondo
+    hctx.fillStyle = "#0d1117";
+    hctx.fillRect(0, 0, W, H);
+
+    // Calcular bins desde chartData
+    const rawCounts = new Array(NUM_BINS).fill(0);
+    for (let v of chartData) {
+        const idx = Math.min(Math.floor((v / V_MAX) * NUM_BINS), NUM_BINS - 1);
+        if (idx >= 0) rawCounts[idx]++;
+    }
+
+    // Suavizado EMA
+    for (let i = 0; i < NUM_BINS; i++) {
+        smoothCounts[i] = ALPHA * rawCounts[i] + (1 - ALPHA) * smoothCounts[i];
+    }
+
+    const maxCount = Math.max(...smoothCounts, 1);
+    const barW     = W / NUM_BINS;
+    const PAD      = 2;
+
+    for (let i = 0; i < NUM_BINS; i++) {
+        const barH = (smoothCounts[i] / maxCount) * (H - 6);
+        const x    = i * barW + PAD / 2;
+        const y    = H - barH;
+        const w    = barW - PAD;
+
+        // Gradiente vertical por barra
+        const grad = hctx.createLinearGradient(x, y, x, H);
+        const col  = binColor(i);
+        grad.addColorStop(0, col + "dd");
+        grad.addColorStop(1, col + "44");
+
+        hctx.fillStyle = grad;
+        hctx.beginPath();
+        hctx.roundRect(x, y, w, barH, [3, 3, 0, 0]);
+        hctx.fill();
+    }
+
+    // Línea de referencia de reposo (15% del eje X)
+    const reposoX = 0.15 * W;
+    hctx.strokeStyle = "#69f0ae44";
+    hctx.lineWidth   = 1;
+    hctx.setLineDash([3, 4]);
+    hctx.beginPath();
+    hctx.moveTo(reposoX, 0);
+    hctx.lineTo(reposoX, H);
+    hctx.stroke();
+    hctx.setLineDash([]);
+
+    // Actualizar métricas
+    updateHistMetrics(rawCounts);
+}
+
+function updateHistMetrics(rawCounts) {
+    // Moda: bin con más muestras → voltaje central
+    const peakBin   = rawCounts.indexOf(Math.max(...rawCounts));
+    const modaV     = ((peakBin + 0.5) / NUM_BINS * V_MAX).toFixed(3);
+    document.getElementById("histModa").textContent = modaV;
+
+    // % Reposo (primeros 15% de bins)
+    const repLimit  = Math.floor(NUM_BINS * 0.15);
+    const totalSamp = rawCounts.reduce((a, b) => a + b, 0) || 1;
+    const sampRep   = rawCounts.slice(0, repLimit).reduce((a, b) => a + b, 0);
+    const sampAct   = totalSamp - sampRep;
+
+    document.getElementById("histReposo").textContent = ((sampRep / totalSamp) * 100).toFixed(1) + "%";
+    document.getElementById("histActivo").textContent  = ((sampAct / totalSamp) * 100).toFixed(1) + "%";
 }
 
 // ── FETCH DATA ──────────────────────────────────────────
@@ -168,19 +455,8 @@ async function fetchData() {
     try {
         const r = await fetch("/emg/data");
         chartData = await r.json();
-
         drawChart();
-
-        // Stats
-        const max = Math.max(...chartData);
-        const min = Math.min(...chartData);
-        const rms = Math.sqrt(chartData.reduce((s, v) => s + v * v, 0) / chartData.length);
-        const mav = chartData.reduce((s, v) => s + Math.abs(v), 0) / chartData.length;
-
-        document.getElementById("statMax").textContent = max.toFixed(3);
-        document.getElementById("statMin").textContent = min.toFixed(3);
-        document.getElementById("statRms").textContent = rms.toFixed(3);
-        document.getElementById("statMav").textContent = mav.toFixed(3);
+        drawHist();
     } catch(e) {}
 }
 
@@ -198,7 +474,6 @@ async function fetchClasificacion() {
         document.getElementById("clfConfianza").textContent = `Confianza: ${(confianza * 100).toFixed(1)}%`;
         document.getElementById("confBar").style.width      = `${(confianza * 100).toFixed(1)}%`;
 
-        // Color por clase
         if (!clases.length) {
             try {
                 const cr = await fetch("/emg/clases");
@@ -209,7 +484,6 @@ async function fetchClasificacion() {
         const color = idx >= 0 ? PALETA[idx % PALETA.length] : "#00e5ff";
         document.getElementById("clfEtiqueta").style.color = color;
         document.getElementById("confBar").style.background = color;
-
     } catch(e) {}
 }
 
@@ -242,19 +516,44 @@ async function togglePausa() {
     } catch(e) { showToast("Error al cambiar estado", "err"); }
 }
 
+// ── ETIQUETA (label) ────────────────────────────────────
+function setLabel(val) {
+    labelActual = val;
+    const dot  = document.getElementById("labelDot");
+    const txt  = document.getElementById("labelVal");
+    const bExt = document.getElementById("btnExt");
+    const bFlex= document.getElementById("btnFlex");
+
+    bExt.classList.remove("active-ext");
+    bFlex.classList.remove("active-flex");
+
+    if (val === "extension") {
+        bExt.classList.add("active-ext");
+        dot.style.background = "#00e5ff";
+        txt.style.color      = "#00e5ff";
+        txt.textContent      = "Extensión";
+    } else {
+        bFlex.classList.add("active-flex");
+        dot.style.background = "#ff4081";
+        txt.style.color      = "#ff4081";
+        txt.textContent      = "Flexión";
+    }
+}
+
 // ── GUARDAR ──────────────────────────────────────────────
 async function guardarMuestra() {
     const nombre = document.getElementById("nombreInput").value.trim();
     if (!nombre) { showToast("Escribe un nombre base", "err"); return; }
+    if (!labelActual) { showToast("Selecciona una etiqueta (Extensión / Flexión)", "err"); return; }
 
     const form = new FormData();
     form.append("nombre", nombre);
-
+    form.append("label",  labelActual);   // ← columna label para el CSV
     try {
         const r = await fetch("/emg/guardar", { method: "POST", body: form });
         const d = await r.json();
-        if (d.ok)    showToast(`✔ Guardado: ${d.ok}`, "ok");
-        else         showToast(`✖ ${d.error}`, "err");
+        if (d.ok) showToast(`✔ Guardado: ${d.ok}`, "ok");
+        else      showToast(`✖ ${d.error}`, "err");
     } catch(e) { showToast("Error al guardar", "err"); }
 }
 
@@ -271,8 +570,8 @@ function showToast(msg, type = "ok") {
 setInterval(fetchData,          50);
 setInterval(fetchClasificacion, 500);
 
-// Dibujo inicial
 drawChart();
+drawHist();
 </script>
 
 </body>
