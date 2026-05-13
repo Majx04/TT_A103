@@ -45,7 +45,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'p
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER']  = os.path.join(BASE_DIR, 'static', 'uploads', 'perfiles')
 app.config['DATASET_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'datasets')
-app.config['MODEL_FOLDER']   = os.path.join(BASE_DIR, 'static', 'models')
+app.config['MODEL_FOLDER']   = os.path.join(BASE_DIR, 'static', 'modelos')
 
 for folder in [app.config['UPLOAD_FOLDER'],
                app.config['DATASET_FOLDER'],
@@ -637,14 +637,17 @@ def eliminar_muestra(nombre):
 
 # ---------- EXTRAER CARACTERÍSTICAS ----------
 # ── Reemplaza la ruta /extraer en app.py ─────────────────
-# Añade al inicio de app.py si no están:
+# Imports adicionales necesarios al inicio de app.py:
 #   from scipy import signal as scipy_signal
 #   from scipy.fft import fft, fftfreq
+#   import pandas as pd   (si no está ya)
 
 from scipy import signal as scipy_signal
 from scipy.fft import fft, fftfreq
 
-# ── Config ────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════
+#  CONFIG
+# ══════════════════════════════════════════════════════════
 WINDOW_SIZE = 200
 STEP        = 50
 THRESHOLD   = 0.01
@@ -653,103 +656,398 @@ BAND_LOW    = (0,   60)
 BAND_MID    = (60,  150)
 BAND_HIGH   = (150, 500)
 
-# ── Funciones temporales ──────────────────────────────────
-def feat_MAV(sig):
+# ══════════════════════════════════════════════════════════
+#  FUNCIONES TEMPORALES  (igual que el script .py original)
+# ══════════════════════════════════════════════════════════
+def _MAV(sig):
     return float(np.mean(np.abs(sig)))
 
-def feat_WL(sig):
+def _WL(sig):
     return float(np.sum(np.abs(np.diff(sig))))
 
-def feat_WAMP(sig, thr=THRESHOLD):
-    return int(np.sum(np.abs(np.diff(sig)) > thr))
+def _WAMP(sig):
+    return int(np.sum(np.abs(np.diff(sig)) > THRESHOLD))
 
-def feat_VAR(sig):
+def _VAR(sig):
     return float(np.var(sig))
 
-def feat_SNR(sig):
-    mean_sig = np.mean(sig)
-    noise    = np.var(sig - mean_sig)
-    return float(10 * np.log10(mean_sig**2 / noise)) if noise > 0 else 0.0
+def _SNR(sig):
+    mean_sig     = np.mean(sig)
+    signal_power = mean_sig ** 2
+    noise_power  = np.var(sig - mean_sig)
+    if noise_power == 0:
+        return 0.0
+    return float(10 * np.log10(signal_power / noise_power))
 
-def feat_ZC(sig, thr=THRESHOLD):
+def _ZC(sig):
     signs     = np.sign(sig)
     crossings = np.where(np.diff(signs) != 0)[0]
-    return int(np.sum(np.abs(np.diff(sig)[crossings]) > thr))
+    return int(np.sum(np.abs(np.diff(sig)[crossings]) > THRESHOLD))
 
-def feat_SSC(sig, thr=THRESHOLD):
-    d1 = np.diff(sig[:-1]); d2 = np.diff(sig[1:])
-    return int(np.sum(((d1 * d2) < 0) & ((np.abs(d1) > thr) | (np.abs(d2) > thr))))
+def _SSC(sig):
+    diff1 = np.diff(sig[:-1])
+    diff2 = np.diff(sig[1:])
+    sign_change  = (diff1 * diff2) < 0
+    amplitude_ok = (np.abs(diff1) > THRESHOLD) | (np.abs(diff2) > THRESHOLD)
+    return int(np.sum(sign_change & amplitude_ok))
 
-def feat_LOG(sig):
-    a = np.abs(sig); a = np.where(a < 1e-10, 1e-10, a)
-    return float(np.exp(np.mean(np.log(a))))
+def _LOG(sig):
+    abs_sig = np.abs(sig)
+    abs_sig = np.where(abs_sig < 1e-10, 1e-10, abs_sig)
+    return float(np.exp(np.mean(np.log(abs_sig))))
 
-def feat_SSI(sig):
+def _SSI(sig):
     return float(np.sum(sig ** 2))
 
-# ── Funciones frecuenciales ───────────────────────────────
-def _spectrum(sig):
-    freqs = fftfreq(len(sig), d=1/FS)
+# ══════════════════════════════════════════════════════════
+#  FUNCIONES FRECUENCIALES  (igual que el script .py original)
+# ══════════════════════════════════════════════════════════
+def _get_spectrum(sig):
+    freqs = fftfreq(len(sig), d=1 / FS)
     power = np.abs(fft(sig)) ** 2
-    h = len(freqs) // 2
-    return freqs[:h], power[:h]
+    half  = len(freqs) // 2
+    return freqs[:half], power[:half]
 
-def feat_MedFreq(sig):
-    freqs, power = _spectrum(sig)
-    cum = np.cumsum(power); total = cum[-1]
-    if total == 0: return 0.0
-    return float(freqs[min(np.searchsorted(cum, total/2), len(freqs)-1)])
+def _median_frequency(sig):
+    freqs, power = _get_spectrum(sig)
+    cumulative   = np.cumsum(power)
+    total        = cumulative[-1]
+    if total == 0:
+        return 0.0
+    idx = np.searchsorted(cumulative, total / 2)
+    return float(freqs[min(idx, len(freqs) - 1)])
 
-def feat_MeanFreq(sig):
-    freqs, power = _spectrum(sig)
+def _TFR_features(sig):
+    _, _, Zxx      = scipy_signal.stft(sig, fs=FS, nperseg=min(64, len(sig) // 2))
+    magnitude      = np.abs(Zxx)
+    tfr_mean       = float(np.mean(magnitude ** 2))
+    tfr_max        = float(np.max(magnitude ** 2))
+    power_norm     = magnitude / (np.sum(magnitude) + 1e-10)
+    tfr_entropy    = float(-np.sum(power_norm * np.log(power_norm + 1e-10)))
+    return tfr_mean, tfr_max, tfr_entropy
+
+def _band_energy(sig, f_low, f_high):
+    freqs, power = _get_spectrum(sig)
+    mask = (freqs >= f_low) & (freqs < f_high)
+    return float(np.sum(power[mask]))
+
+def _total_power(sig):
+    _, power = _get_spectrum(sig)
+    return float(np.sum(power))
+
+def _top_n_frequencies(sig, n=5):
+    freqs, power = _get_spectrum(sig)
+    top_idx = np.argsort(power)[::-1][:n] if len(power) >= n else np.argsort(power)[::-1]
+    result  = list(freqs[top_idx])
+    while len(result) < n:
+        result.append(0.0)
+    return result
+
+def _spectral_entropy(sig):
+    _, power = _get_spectrum(sig)
+    total    = np.sum(power)
+    if total == 0:
+        return 0.0
+    p_norm = power / total
+    p_norm = p_norm[p_norm > 0]
+    return float(-np.sum(p_norm * np.log2(p_norm)))
+
+def _spectral_kurtosis(sig):
+    freqs, power = _get_spectrum(sig)
+    total = np.sum(power)
+    if total == 0:
+        return 0.0
+    p_norm = power / total
+    mean_f = np.sum(freqs * p_norm)
+    std_f  = np.sqrt(np.sum(((freqs - mean_f) ** 2) * p_norm))
+    if std_f == 0:
+        return 0.0
+    return float(np.sum(((freqs - mean_f) ** 4) * p_norm) / (std_f ** 4))
+
+def _mean_frequency(sig):
+    freqs, power = _get_spectrum(sig)
     total = np.sum(power)
     return float(np.sum(freqs * power) / total) if total > 0 else 0.0
 
-def feat_SpectralEntropy(sig):
-    _, power = _spectrum(sig)
-    total = np.sum(power)
-    if total == 0: return 0.0
-    p = power / total; p = p[p > 0]
-    return float(-np.sum(p * np.log2(p)))
+# ══════════════════════════════════════════════════════════
+#  RUTA FLASK
+# ══════════════════════════════════════════════════════════
+# ── Reemplaza la ruta /extraer en app.py ─────────────────
+# Imports adicionales necesarios al inicio de app.py:
+#   from scipy import signal as scipy_signal
+#   from scipy.fft import fft, fftfreq
 
-def feat_SpectralKurtosis(sig):
-    freqs, power = _spectrum(sig)
-    total = np.sum(power)
-    if total == 0: return 0.0
-    p = power / total
-    mf = np.sum(freqs * p)
-    sf = np.sqrt(np.sum(((freqs - mf)**2) * p))
-    return float(np.sum(((freqs - mf)**4) * p) / sf**4) if sf > 0 else 0.0
+from scipy import signal as scipy_signal
+from scipy.fft import fft, fftfreq
+import io as _io
+import pandas as _pd
 
-def feat_TopFreqs(sig, n=5):
-    freqs, power = _spectrum(sig)
-    idx = np.argsort(power)[::-1][:n]
+# ══════════════════════════════════════════════════════════
+#  CONFIG
+# ══════════════════════════════════════════════════════════
+WINDOW_SIZE = 200
+STEP        = 50
+THRESHOLD   = 0.01
+FS          = 1000
+BAND_LOW    = (0,   60)
+BAND_MID    = (60,  150)
+BAND_HIGH   = (150, 500)
+
+# ══════════════════════════════════════════════════════════
+#  FUNCIONES TEMPORALES
+# ══════════════════════════════════════════════════════════
+def _MAV(sig):
+    return float(np.mean(np.abs(sig)))
+
+def _WL(sig):
+    return float(np.sum(np.abs(np.diff(sig))))
+
+def _WAMP(sig):
+    return int(np.sum(np.abs(np.diff(sig)) > THRESHOLD))
+
+def _VAR(sig):
+    return float(np.var(sig))
+
+def _SNR(sig):
+    mean_sig     = np.mean(sig)
+    signal_power = mean_sig ** 2
+    noise_power  = np.var(sig - mean_sig)
+    if noise_power == 0:
+        return 0.0
+    return float(10 * np.log10(signal_power / noise_power))
+
+def _ZC(sig):
+    signs     = np.sign(sig)
+    crossings = np.where(np.diff(signs) != 0)[0]
+    return int(np.sum(np.abs(np.diff(sig)[crossings]) > THRESHOLD))
+
+def _SSC(sig):
+    diff1 = np.diff(sig[:-1])
+    diff2 = np.diff(sig[1:])
+    sign_change  = (diff1 * diff2) < 0
+    amplitude_ok = (np.abs(diff1) > THRESHOLD) | (np.abs(diff2) > THRESHOLD)
+    return int(np.sum(sign_change & amplitude_ok))
+
+def _LOG(sig):
+    abs_sig = np.abs(sig)
+    abs_sig = np.where(abs_sig < 1e-10, 1e-10, abs_sig)
+    return float(np.exp(np.mean(np.log(abs_sig))))
+
+def _SSI(sig):
+    return float(np.sum(sig ** 2))
+
+# ══════════════════════════════════════════════════════════
+#  FUNCIONES FRECUENCIALES
+# ══════════════════════════════════════════════════════════
+def _get_spectrum(sig):
+    freqs = fftfreq(len(sig), d=1 / FS)
+    power = np.abs(fft(sig)) ** 2
+    half  = len(freqs) // 2
+    return freqs[:half], power[:half]
+
+def _median_frequency(sig):
+    freqs, power = _get_spectrum(sig)
+    cumulative   = np.cumsum(power)
+    total        = cumulative[-1]
+    if total == 0:
+        return 0.0
+    idx = np.searchsorted(cumulative, total / 2)
+    return float(freqs[min(idx, len(freqs) - 1)])
+
+def _TFR_features(sig):
+    _, _, Zxx   = scipy_signal.stft(sig, fs=FS, nperseg=min(64, len(sig) // 2))
+    magnitude   = np.abs(Zxx)
+    tfr_mean    = float(np.mean(magnitude ** 2))
+    tfr_max     = float(np.max(magnitude ** 2))
+    power_norm  = magnitude / (np.sum(magnitude) + 1e-10)
+    tfr_entropy = float(-np.sum(power_norm * np.log(power_norm + 1e-10)))
+    return tfr_mean, tfr_max, tfr_entropy
+
+def _band_energy(sig, f_low, f_high):
+    freqs, power = _get_spectrum(sig)
+    mask = (freqs >= f_low) & (freqs < f_high)
+    return float(np.sum(power[mask]))
+
+def _total_power(sig):
+    _, power = _get_spectrum(sig)
+    return float(np.sum(power))
+
+def _top_n_frequencies(sig, n=5):
+    freqs, power = _get_spectrum(sig)
+    top_idx = np.argsort(power)[::-1][:n] if len(power) >= n else np.argsort(power)[::-1]
+    result  = list(freqs[top_idx])
+    while len(result) < n:
+        result.append(0.0)
+    return result
+
+def _spectral_entropy(sig):
+    _, power = _get_spectrum(sig)
+    total    = np.sum(power)
+    if total == 0:
+        return 0.0
+    p_norm = power / total
+    p_norm = p_norm[p_norm > 0]
+    return float(-np.sum(p_norm * np.log2(p_norm)))
+
+def _spectral_kurtosis(sig):
+    freqs, power = _get_spectrum(sig)
+    total = np.sum(power)
+    if total == 0:
+        return 0.0
+    p_norm = power / total
+    mean_f = np.sum(freqs * p_norm)
+    std_f  = np.sqrt(np.sum(((freqs - mean_f) ** 2) * p_norm))
+    if std_f == 0:
+        return 0.0
+    return float(np.sum(((freqs - mean_f) ** 4) * p_norm) / (std_f ** 4))
+
+def _mean_frequency(sig):
+    freqs, power = _get_spectrum(sig)
+    total = np.sum(power)
+    return float(np.sum(freqs * power) / total) if total > 0 else 0.0
+
+def _dominant_label(w_labels):
+    """
+    Retorna la etiqueta dominante en la ventana.
+    Usa el mismo criterio que el script original: mode()[0].
+    Maneja arrays vacíos, todos-NaN y strings vacíos.
+    """
+    serie = _pd.Series(w_labels)
+    # Filtrar vacíos y NaN
+    serie = serie[serie.notna() & (serie.astype(str).str.strip() != "")]
+    if serie.empty:
+        return ""
+    moda = serie.mode()
+    return str(moda.iloc[0]) if not moda.empty else str(serie.iloc[0])
+
+# ══════════════════════════════════════════════════════════
+#  RUTA FLASK
+# ══════════════════════════════════════════════════════════
+# ── Reemplaza la ruta /extraer en app.py ─────────────────
+# Imports adicionales al inicio de app.py si no están:
+#   from scipy import signal as scipy_signal
+#   from scipy.fft import fft, fftfreq
+#   import pandas as pd
+#   import io
+
+from scipy import signal as scipy_signal
+from scipy.fft import fft, fftfreq
+import io as _io
+import pandas as _pd
+
+# ══════════════════════════════════════════════════════════
+#  CONFIG
+# ══════════════════════════════════════════════════════════
+WINDOW_SIZE = 200
+STEP        = 50
+THRESHOLD   = 0.01
+FS          = 1000
+BAND_LOW    = (0,   60)
+BAND_MID    = (60,  150)
+BAND_HIGH   = (150, 500)
+
+# ══════════════════════════════════════════════════════════
+#  FUNCIONES TEMPORALES
+# ══════════════════════════════════════════════════════════
+def _MAV(sig):
+    return float(np.mean(np.abs(sig)))
+
+def _WL(sig):
+    return float(np.sum(np.abs(np.diff(sig))))
+
+def _WAMP(sig):
+    return int(np.sum(np.abs(np.diff(sig)) > THRESHOLD))
+
+def _VAR(sig):
+    return float(np.var(sig))
+
+def _SNR(sig):
+    mean_sig    = np.mean(sig)
+    noise_power = np.var(sig - mean_sig)
+    if noise_power == 0:
+        return 0.0
+    return float(10 * np.log10(mean_sig ** 2 / noise_power))
+
+def _ZC(sig):
+    signs     = np.sign(sig)
+    crossings = np.where(np.diff(signs) != 0)[0]
+    return int(np.sum(np.abs(np.diff(sig)[crossings]) > THRESHOLD))
+
+def _SSC(sig):
+    d1 = np.diff(sig[:-1]); d2 = np.diff(sig[1:])
+    return int(np.sum(((d1 * d2) < 0) & ((np.abs(d1) > THRESHOLD) | (np.abs(d2) > THRESHOLD))))
+
+def _LOG(sig):
+    a = np.abs(sig); a = np.where(a < 1e-10, 1e-10, a)
+    return float(np.exp(np.mean(np.log(a))))
+
+def _SSI(sig):
+    return float(np.sum(sig ** 2))
+
+# ══════════════════════════════════════════════════════════
+#  FUNCIONES FRECUENCIALES
+# ══════════════════════════════════════════════════════════
+def _get_spectrum(sig):
+    freqs = fftfreq(len(sig), d=1/FS)
+    power = np.abs(fft(sig)) ** 2
+    h     = len(freqs) // 2
+    return freqs[:h], power[:h]
+
+def _median_frequency(sig):
+    freqs, power = _get_spectrum(sig)
+    cum   = np.cumsum(power); total = cum[-1]
+    if total == 0: return 0.0
+    return float(freqs[min(np.searchsorted(cum, total/2), len(freqs)-1)])
+
+def _TFR_features(sig):
+    _, _, Zxx  = scipy_signal.stft(sig, fs=FS, nperseg=min(64, len(sig)//2))
+    mag        = np.abs(Zxx)
+    pn         = mag / (np.sum(mag) + 1e-10)
+    return float(np.mean(mag**2)), float(np.max(mag**2)), float(-np.sum(pn * np.log(pn + 1e-10)))
+
+def _band_energy(sig, f_low, f_high):
+    freqs, power = _get_spectrum(sig)
+    return float(np.sum(power[(freqs >= f_low) & (freqs < f_high)]))
+
+def _total_power(sig):
+    _, power = _get_spectrum(sig); return float(np.sum(power))
+
+def _top_n_frequencies(sig, n=5):
+    freqs, power = _get_spectrum(sig)
+    idx    = np.argsort(power)[::-1][:n] if len(power) >= n else np.argsort(power)[::-1]
     result = list(freqs[idx])
     while len(result) < n: result.append(0.0)
     return result
 
-def feat_E_Total(sig):
-    _, power = _spectrum(sig); return float(np.sum(power))
+def _spectral_entropy(sig):
+    _, power = _get_spectrum(sig); total = np.sum(power)
+    if total == 0: return 0.0
+    p = power / total; p = p[p > 0]
+    return float(-np.sum(p * np.log2(p)))
 
-def feat_band_energy(sig, f_low, f_high):
-    freqs, power = _spectrum(sig)
-    return float(np.sum(power[(freqs >= f_low) & (freqs < f_high)]))
+def _spectral_kurtosis(sig):
+    freqs, power = _get_spectrum(sig); total = np.sum(power)
+    if total == 0: return 0.0
+    p  = power / total
+    mf = np.sum(freqs * p)
+    sf = np.sqrt(np.sum(((freqs - mf)**2) * p))
+    return float(np.sum(((freqs - mf)**4) * p) / sf**4) if sf > 0 else 0.0
 
-def feat_TFR(sig):
-    _, _, Zxx = scipy_signal.stft(sig, fs=FS, nperseg=min(64, len(sig)//2))
-    mag = np.abs(Zxx)
-    pn  = mag / (np.sum(mag) + 1e-10)
-    return float(np.mean(mag**2)), float(np.max(mag**2)), float(-np.sum(pn * np.log(pn + 1e-10)))
+def _mean_frequency(sig):
+    freqs, power = _get_spectrum(sig); total = np.sum(power)
+    return float(np.sum(freqs * power) / total) if total > 0 else 0.0
 
-# ── Ruta Flask ────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════
+#  RUTA FLASK
+# ══════════════════════════════════════════════════════════
 @app.route("/extraer", methods=["GET", "POST"])
 def extraer():
     if not login_required():
         return redirect(url_for("login"))
 
     if request.method == "POST":
-        archivos          = request.files.getlist("archivos")
-        features_pedidas  = set(request.form.getlist("features"))  # features seleccionadas
+        archivos         = request.files.getlist("archivos")
+        features_pedidas = set(request.form.getlist("features"))
 
         if not archivos or all(f.filename == "" for f in archivos):
             flash("No se seleccionaron archivos")
@@ -759,24 +1057,24 @@ def extraer():
             flash("Selecciona al menos una característica")
             return redirect(url_for("extraer"))
 
-        # Orden canónico de columnas (solo las seleccionadas)
+        # Orden canónico
         TODAS = [
             "MAV", "WL", "WAMP", "VAR", "SNR",
             "ZC", "SSC", "LOG", "SSI",
-            "MedFreq", "MeanFreq", "SpectralEntropy", "SpectralKurtosis",
-            "TopFreq1", "TopFreq2", "TopFreq3", "TopFreq4", "TopFreq5",
+            "MedFreq",
+            "TFR_MeanEnergy", "TFR_MaxEnergy", "TFR_Entropy",
             "E_Total", "E_Low", "E_Mid", "E_High",
             "R_Low", "R_Mid", "R_High", "R_HighLow",
-            "TFR_MeanEnergy", "TFR_MaxEnergy", "TFR_Entropy",
+            "TopFreq1", "TopFreq2", "TopFreq3", "TopFreq4", "TopFreq5",
+            "SpectralEntropy", "SpectralKurtosis", "MeanFreq",
             "label"
         ]
 
-        # Las top5 se agrupan bajo "TopFreqs" en el form pero se expanden a 5 cols
         def col_activa(col):
             if col in ("TopFreq1","TopFreq2","TopFreq3","TopFreq4","TopFreq5"):
                 return "TopFreqs" in features_pedidas
             if col == "label":
-                return True
+                return True          # label SIEMPRE se incluye
             return col in features_pedidas
 
         columnas = [c for c in TODAS if col_activa(c)]
@@ -789,76 +1087,97 @@ def extraer():
             if not f.filename.endswith(".csv"):
                 continue
             try:
-                contenido = f.read().decode("utf-8").splitlines()
-                reader    = csv.DictReader(contenido)
-                filas     = list(reader)
-                if not filas:
-                    continue
+                contenido = f.read().decode("utf-8")
+                df_arch   = _pd.read_csv(_io.StringIO(contenido))
 
-                col_volt  = next((c for c in filas[0] if c.strip().lower() == "voltaje"), None)
-                col_label = next((c for c in filas[0] if c.strip().lower() == "label"),   None)
+                # Normalizar nombres de columnas (quitar espacios)
+                df_arch.columns = [c.strip() for c in df_arch.columns]
+
+                print(f">>> {f.filename} — columnas: {list(df_arch.columns)}")
+
+                # Buscar columna voltaje
+                col_volt = next(
+                    (c for c in df_arch.columns if c.lower() == "voltaje"), None
+                )
                 if col_volt is None:
+                    print(f"  ✗ Sin columna 'voltaje' — omitiendo")
                     continue
 
-                voltajes, etiquetas = [], []
-                for fila in filas:
-                    try:
-                        voltajes.append(float(fila[col_volt]))
-                        etiquetas.append(fila[col_label].strip() if col_label else "")
-                    except (ValueError, KeyError):
-                        pass
+                # Buscar columna label — acepta label, extension, flexion
+                LABEL_NAMES = {"label", "extension", "flexion", "etiqueta"}
+                col_label = next(
+                    (c for c in df_arch.columns if c.strip().lower() in LABEL_NAMES), None
+                )
+                print(f"  col_volt={col_volt!r}  col_label={col_label!r}")
 
-                if len(voltajes) < WINDOW_SIZE:
+                sig_full = df_arch[col_volt].astype(float).values
+
+                if col_label is not None:
+                    raw = df_arch[col_label].astype(str).str.strip()
+                    if col_label.strip().lower() in {"extension", "flexion"}:
+                        labels_full = np.full(len(sig_full), col_label.strip().lower(), dtype=object)
+                        print(f"  Columna-etiqueta: {col_label!r} asignada como label fijo")
+                    else:
+                        labels_full = raw.values
+                    print(f"  Primeras etiquetas: {labels_full[:5]}")
+                else:
+                    labels_full = np.full(len(sig_full), "", dtype=object)
+                    print(f"  ✗ Sin columna label")
+
+                if len(sig_full) < WINDOW_SIZE:
+                    print(f"  ✗ Señal demasiado corta ({len(sig_full)} muestras)")
                     continue
 
-                sig_full = np.array(voltajes, dtype=np.float64)
-
+                ventanas_procesadas = 0
                 for i in range(0, len(sig_full) - WINDOW_SIZE, STEP):
                     w        = sig_full[i:i + WINDOW_SIZE]
-                    w_labels = etiquetas[i:i + WINDOW_SIZE]
+                    w_labels = labels_full[i:i + WINDOW_SIZE]
 
-                    # Calcular todo (solo se escribe lo seleccionado)
-                    e_total = feat_E_Total(w)
-                    e_low   = feat_band_energy(w, *BAND_LOW)
-                    e_mid   = feat_band_energy(w, *BAND_MID)
-                    e_high  = feat_band_energy(w, *BAND_HIGH)
-                    tfr_mean, tfr_max, tfr_e = feat_TFR(w)
-                    top5 = feat_TopFreqs(w)
+                    # Temporales
+                    mav  = _MAV(w);   wl   = _WL(w)
+                    wamp = _WAMP(w);  var  = _VAR(w);  snr  = _SNR(w)
+                    zc   = _ZC(w);    ssc  = _SSC(w)
+                    log  = _LOG(w);   ssi  = _SSI(w)
 
-                    from collections import Counter
-                    label = Counter(w_labels).most_common(1)[0][0] if w_labels else ""
+                    # Frecuenciales
+                    mf                       = _median_frequency(w)
+                    tfr_mean, tfr_max, tfr_e = _TFR_features(w)
+                    e_total                  = _total_power(w)
+                    e_low                    = _band_energy(w, *BAND_LOW)
+                    e_mid                    = _band_energy(w, *BAND_MID)
+                    e_high                   = _band_energy(w, *BAND_HIGH)
+                    r_low                    = e_low  / e_total if e_total > 0 else 0
+                    r_mid                    = e_mid  / e_total if e_total > 0 else 0
+                    r_high                   = e_high / e_total if e_total > 0 else 0
+                    r_hi_lo                  = e_high / e_low   if e_low   > 0 else 0
+                    top5                     = _top_n_frequencies(w, n=5)
+                    sp_entropy               = _spectral_entropy(w)
+                    sp_kurtosis              = _spectral_kurtosis(w)
+                    mean_freq                = _mean_frequency(w)
+
+                    # ── Etiqueta dominante: mode()[0] igual que el script original ──
+                    serie   = _pd.Series(w_labels)
+                    moda    = serie.mode()
+                    label   = moda.iloc[0] if len(moda) > 0 else ""
 
                     todas_vals = {
-                        "MAV":              feat_MAV(w),
-                        "WL":               feat_WL(w),
-                        "WAMP":             feat_WAMP(w),
-                        "VAR":              feat_VAR(w),
-                        "SNR":              feat_SNR(w),
-                        "ZC":               feat_ZC(w),
-                        "SSC":              feat_SSC(w),
-                        "LOG":              feat_LOG(w),
-                        "SSI":              feat_SSI(w),
-                        "MedFreq":          feat_MedFreq(w),
-                        "MeanFreq":         feat_MeanFreq(w),
-                        "SpectralEntropy":  feat_SpectralEntropy(w),
-                        "SpectralKurtosis": feat_SpectralKurtosis(w),
-                        "TopFreq1": top5[0], "TopFreq2": top5[1],
-                        "TopFreq3": top5[2], "TopFreq4": top5[3], "TopFreq5": top5[4],
-                        "E_Total":       e_total,
-                        "E_Low":         e_low,
-                        "E_Mid":         e_mid,
-                        "E_High":        e_high,
-                        "R_Low":         e_low  / e_total if e_total > 0 else 0,
-                        "R_Mid":         e_mid  / e_total if e_total > 0 else 0,
-                        "R_High":        e_high / e_total if e_total > 0 else 0,
-                        "R_HighLow":     e_high / e_low   if e_low   > 0 else 0,
-                        "TFR_MeanEnergy": tfr_mean,
-                        "TFR_MaxEnergy":  tfr_max,
-                        "TFR_Entropy":    tfr_e,
-                        "label":          label,
+                        "MAV": mav, "WL": wl, "WAMP": wamp, "VAR": var, "SNR": snr,
+                        "ZC": zc, "SSC": ssc, "LOG": log, "SSI": ssi,
+                        "MedFreq": mf,
+                        "TFR_MeanEnergy": tfr_mean, "TFR_MaxEnergy": tfr_max, "TFR_Entropy": tfr_e,
+                        "E_Total": e_total, "E_Low": e_low, "E_Mid": e_mid, "E_High": e_high,
+                        "R_Low": r_low, "R_Mid": r_mid, "R_High": r_high, "R_HighLow": r_hi_lo,
+                        "TopFreq1": top5[0], "TopFreq2": top5[1], "TopFreq3": top5[2],
+                        "TopFreq4": top5[3], "TopFreq5": top5[4],
+                        "SpectralEntropy": sp_entropy, "SpectralKurtosis": sp_kurtosis,
+                        "MeanFreq": mean_freq,
+                        "label": label,
                     }
 
                     writer.writerow([todas_vals[c] for c in columnas])
+                    ventanas_procesadas += 1
+
+                print(f"  ✔ {ventanas_procesadas} ventanas procesadas")
 
             except Exception as e:
                 print(f"Error procesando {f.filename}: {e}")
@@ -879,9 +1198,13 @@ def extraer():
     return render_template("extraer.html")
 
 # ---------- MODELO BLUEPRINT ----------
-from rutas.modelo import modelo_bp
-app.register_blueprint(modelo_bp)
 
+#----DISEÑO MECANICO
+from flask import render_template
+
+@app.route('/diseno-mecanico')
+def diseno_mecanico():
+    return render_template('mecanico.html')
 
 
 # ========================
