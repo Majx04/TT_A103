@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TT A-103</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+<style>
+  :root {
+    --accent: #00d4aa; --accent2: #7c6af7; --warn: #f0a830;
+    --surface: #ffffff; --surface2: #f4f7f6; --border: #e0e0e0;
+    --text: #333; --muted: #777;
+    --danger-bg: #fdecea; --danger-text: #c0392b;
+  }
+
+  .modelo-wrap { width: 100%; max-width: 700px; }
+
+  .upload-section {
+    border: 1px solid var(--border); border-radius: 20px; padding: 2rem;
+    background: var(--surface); position: relative; overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+  }
+
+  .upload-section::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 3px; background: linear-gradient(90deg, #003b4a, var(--accent));
+  }
+
+  .section-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin-bottom: 1.25rem; display: flex;
+    align-items: center; gap: 8px; font-weight: 600;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .upload-area {
+    border: 2px dashed #ccc; border-radius: 12px; padding: 2.5rem 2rem;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+    background: var(--surface2); position: relative;
+  }
+  .upload-area:hover, .upload-area.dragover { border-color: #003b4a; background: #e8f4f6; }
+  .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 2.5rem; margin-bottom: 0.75rem; color: #003b4a; opacity: 0.5; }
+  .upload-text { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+  .file-name { margin-top: 0.75rem; font-size: 0.8rem; color: #003b4a; font-weight: 600; display: none; }
+
+  .train-btn {
+    margin-top: 1.25rem; width: 100%; padding: 0.9rem;
+    background: #003b4a; color: white; border: none; border-radius: 12px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .train-btn:hover { background: #005f76; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,59,74,0.2); }
+  .train-btn:disabled { background: #aaa; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .progress-wrap { display: none; margin-top: 1.25rem; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 0.6rem; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #003b4a, var(--accent)); border-radius: 2px; animation: progress-anim 2.5s ease-in-out infinite; width: 70%; }
+  @keyframes progress-anim { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+  .progress-text { font-size: 0.75rem; color: var(--muted); text-align: center; animation: blink 1.5s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .error-box { display: none; background: var(--danger-bg); border: 1px solid #f5c6cb; border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.8rem; color: var(--danger-text); margin-top: 1rem; }
+
+  .success-box {
+    display: none; background: #e8f4f6; border: 1px solid #b8dce8;
+    border-radius: 12px; padding: 1.25rem; margin-top: 1.25rem;
+    text-align: center;
+  }
+  .success-box p { color: #003b4a; font-size: 0.85rem; margin-bottom: 1rem; font-weight: 500; }
+  .ver-btn {
+    display: inline-block; padding: 0.7rem 1.5rem;
+    background: #003b4a; color: white; border-radius: 10px;
+    text-decoration: none; font-size: 0.85rem; font-weight: 700;
+    letter-spacing: 0.04em; transition: all 0.2s;
+  }
+  .ver-btn:hover { background: #005f76; transform: translateY(-1px); }
+</style>
+</head>
+<body>
+
+<header class="navbar">
+  <div class="logo"></div>
+  <nav class="menu">
+    <a href="{{ url_for('home') }}">Inicio</a>
+    <a href="{{ url_for('vistaVotos') }}">Resultados</a>
+    <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+  </nav>
+</header>
+
+<main class="contenido">
+  <div class="modelo-wrap">
+    <div class="upload-section">
+      <div class="section-label"><i class="fas fa-brain" style="color:#003b4a"></i> Entrenamiento · Ensemble Voting</div>
+
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="csvFile" accept=".csv">
+        <div class="upload-icon"><i class="fas fa-file-csv"></i></div>
+        <div class="upload-text">Arrastra tu archivo <strong>CSV</strong> aquí<br>o haz clic para seleccionar</div>
+      </div>
+      <div class="file-name" id="fileName"></div>
+
+      <button class="train-btn" id="trainBtn" onclick="startTraining()" disabled>
+        <i class="fas fa-play"></i> &nbsp;Entrenar modelo
+      </button>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+        <div class="progress-text" id="progressText">Inicializando pipeline...</div>
+      </div>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <div class="success-box" id="successBox">
+        <p><i class="fas fa-check-circle" style="color:#003b4a; margin-right:6px"></i> Modelo entrenado correctamente. Los resultados han sido guardados.</p>
+        <a href="{{ url_for('vistaVotos') }}" class="ver-btn"><i class="fas fa-chart-bar"></i> &nbsp;Ver resultados</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer">© 2026 TT A - 103. All rights reserved.</footer>
+
+<script>
+  const STORAGE_KEY = 'votos_model_results';
+  const steps = [
+    "Cargando datos CSV...", "Normalizando features...",
+    "Optimizando XGBoost con GridSearchCV...", "Seleccionando features relevantes...",
+    "Entrenando red neuronal MLP...", "Entrenando SVM con kernel RBF...",
+    "Calculando pesos del ensemble...", "Optimizando threshold de decisión...",
+    "Generando métricas finales..."
+  ];
+
+  let stepInterval = null, currentStep = 0;
+  const csvFile = document.getElementById('csvFile');
+  const trainBtn = document.getElementById('trainBtn');
+  const uploadArea = document.getElementById('uploadArea');
+
+  csvFile.addEventListener('change', () => {
+    if (csvFile.files[0]) {
+      document.getElementById('fileName').textContent = '📄 ' + csvFile.files[0].name;
+      document.getElementById('fileName').style.display = 'block';
+      trainBtn.disabled = false;
+    }
+  });
+
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault(); uploadArea.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.csv')) {
+      const dt = new DataTransfer(); dt.items.add(f); csvFile.files = dt.files;
+      document.getElementById('fileName').textContent = '📄 ' + f.name;
+      document.getElementById('fileName').style.display = 'block';
+      trainBtn.disabled = false;
+    }
+  });
+
+  function startTraining() {
+    const file = csvFile.files[0];
+    if (!file) return;
+
+    document.getElementById('errorBox').style.display = 'none';
+    document.getElementById('successBox').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'block';
+    trainBtn.disabled = true;
+    currentStep = 0;
+
+    stepInterval = setInterval(() => {
+      if (currentStep < steps.length)
+        document.getElementById('progressText').textContent = steps[currentStep++];
+    }, 2500);
+
+    const formData = new FormData();
+    formData.append('csv_file', file);
+
+    fetch('/votos', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        clearInterval(stepInterval);
+        document.getElementById('progressWrap').style.display = 'none';
+        trainBtn.disabled = false;
+
+        if (data.error) {
+          const eb = document.getElementById('errorBox');
+          eb.textContent = '⚠ ' + data.error;
+          eb.style.display = 'block';
+          return;
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        document.getElementById('successBox').style.display = 'block';
+      })
+      .catch(err => {
+        clearInterval(stepInterval);
+        document.getElementById('progressWrap').style.display = 'none';
+        trainBtn.disabled = false;
+        const eb = document.getElementById('errorBox');
+        eb.textContent = '⚠ Error de conexión: ' + err.message;
+        eb.style.display = 'block';
+      });
+  }
+</script>
+</body>
+</html>

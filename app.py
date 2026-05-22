@@ -576,6 +576,12 @@ def modelo_view():
         return redirect(url_for("login"))
     return render_template("vistaModelo.html")
 
+@app.route("/modeloIA")
+def modelo():
+    if not login_required():
+        return redirect(url_for("login"))
+    return render_template("modelo.html")
+
 # ---------- CSV COMBINAR ----------
 
 @app.route("/csv", methods=["GET"])
@@ -1205,6 +1211,21 @@ from flask import render_template
 @app.route('/diseno-mecanico')
 def diseno_mecanico():
     return render_template('mecanico.html')
+
+######MODELO VOTOS
+from rutas.votos import votosTrain
+
+@app.route('/votos', methods=['GET', 'POST'])
+def votos():
+    if request.method == 'POST':
+        return votosTrain()
+    return render_template('votos.html')
+
+@app.route('/vista_votos')
+def vistaVotos():
+    return render_template('vista_votos.html')
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 # ========================

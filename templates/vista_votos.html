@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TT A-103</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+<style>
+  :root {
+    --accent: #00d4aa; --accent2: #7c6af7; --warn: #f0a830;
+    --surface: #ffffff; --surface2: #f4f7f6; --border: #e0e0e0;
+    --text: #333; --muted: #777;
+    --success-bg: #e6f9f5; --success-text: #00a080;
+    --danger-bg: #fdecea; --danger-text: #c0392b;
+  }
+
+  .modelo-wrap { width: 100%; max-width: 1100px; }
+
+  .no-data {
+    text-align: center; padding: 4rem 2rem;
+    background: var(--surface); border-radius: 20px;
+    border: 1px solid var(--border); box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+  }
+  .no-data i { font-size: 3rem; color: #ccc; margin-bottom: 1rem; display: block; }
+  .no-data p { color: var(--muted); margin-bottom: 1.5rem; }
+  .no-data a {
+    display: inline-block; padding: 0.7rem 1.5rem; background: #003b4a;
+    color: white; border-radius: 10px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 700; transition: all 0.2s;
+  }
+  .no-data a:hover { background: #005f76; transform: translateY(-1px); }
+
+  .cached-notice {
+    background: #e8f4f6; border: 1px solid #b8dce8; border-radius: 10px;
+    padding: 0.6rem 1rem; font-size: 0.75rem; color: #003b4a;
+    margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;
+  }
+
+  .section-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin-bottom: 1.25rem; display: flex;
+    align-items: center; gap: 8px; font-weight: 600;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .badge { display: inline-block; font-size: 0.65rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+  .badge-green { background: var(--success-bg); color: var(--success-text); border: 1px solid #b2dfdb; }
+
+  .metrics-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 1.5rem;
+  }
+
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 1.25rem 1rem; text-align: center; position: relative; overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .metric-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,59,74,0.12); }
+  .metric-card.highlight { border-color: #003b4a; }
+  .metric-card.highlight::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #003b4a, var(--accent)); }
+  .metric-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5rem; font-weight: 600; }
+  .metric-value { font-size: 1.8rem; font-weight: 800; color: #003b4a; }
+  .metric-value.green { color: var(--accent); }
+  .metric-value.purple { color: var(--accent2); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .panel-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .panel-title::after { content: ''; flex:1; height: 1px; background: var(--border); }
+
+  .weight-row { margin-bottom: 1rem; }
+  .weight-header { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; color: var(--muted); }
+  .weight-header span:last-child { color: var(--text); font-weight: 600; }
+  .weight-bar { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .weight-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+  .w-mlp { background: var(--accent2); }
+  .w-xgb { background: #003b4a; }
+  .w-svm { background: var(--warn); }
+
+  .cm-grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center; }
+  .cm-header { text-align: center; color: var(--muted); font-size: 0.65rem; font-weight: 600; }
+  .cm-row-label { color: var(--muted); font-size: 0.65rem; font-weight: 600; }
+  .cm-cell { text-align: center; padding: 0.85rem 0.5rem; border-radius: 10px; font-size: 1.3rem; font-weight: 800; }
+  .cm-tp, .cm-tn { background: var(--success-bg); color: var(--success-text); }
+  .cm-fp, .cm-fn { background: var(--danger-bg); color: var(--danger-text); }
+
+  .report-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  thead th { text-align: center; padding: 0.6rem 0.75rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 2px solid var(--border); font-weight: 600; }
+  thead th:first-child { text-align: left; }
+  tbody td { text-align: center; padding: 0.7rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  tbody td:first-child { text-align: left; color: var(--text); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; color: var(--muted); font-style: italic; }
+  tbody tr:hover td { background: var(--surface2); }
+
+  .chart-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .chart-panel img { width: 100%; border-radius: 8px; }
+
+  .features-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.75rem; }
+  .feature-tag { font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; background: #e8f4f6; border: 1px solid #b8dce8; color: #003b4a; font-weight: 500; }
+
+  .params-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 0.75rem; }
+  .param-item { background: var(--surface2); border-radius: 10px; padding: 0.6rem 0.75rem; border: 1px solid var(--border); }
+  .param-key { font-size: 0.62rem; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .param-val { font-size: 0.85rem; color: #003b4a; font-weight: 700; }
+
+  @media (max-width: 700px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .params-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header class="navbar">
+  <div class="logo"></div>
+  <nav class="menu">
+    <a href="{{ url_for('home') }}"> Inicio</a>
+    <a href="{{ url_for('votos') }}">Regresar</a>
+    <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+  </nav>
+</header>
+
+<main class="contenido" style="align-items: flex-start; padding-top: 2rem;">
+  <div class="modelo-wrap">
+
+    <!-- Sin datos -->
+    <div class="no-data" id="noData" style="display:none;">
+      <i class="fas fa-chart-bar"></i>
+      <p>Aún no hay resultados guardados. Entrena el modelo primero.</p>
+      <a href="{{ url_for('votos') }}"><i class="fas fa-brain"></i> &nbsp;Ir a entrenar</a>
+    </div>
+
+    <!-- Resultados -->
+    <div id="results" style="display:none;">
+
+      <div class="cached-notice">
+        <i class="fas fa-history"></i>
+        Resultados del último entrenamiento. &nbsp;
+        <a href="{{ url_for('votos') }}" style="color:#003b4a; font-weight:700;">Entrenar de nuevo →</a>
+      </div>
+
+      <div class="section-label" style="margin-bottom:1.25rem;">
+        <i class="fas fa-chart-bar" style="color:#003b4a"></i>
+        Resultados del modelo · Ensemble Voting &nbsp;
+        <span class="badge badge-green" id="accBadge">—</span>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card highlight">
+          <div class="metric-label">Accuracy final</div>
+          <div class="metric-value green" id="mFinalAcc">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Accuracy voting</div>
+          <div class="metric-value purple" id="mVotingAcc">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Mejor threshold</div>
+          <div class="metric-value" style="color:#003b4a" id="mThreshold">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total muestras</div>
+          <div class="metric-value" style="color:#003b4a" id="mSamples">—</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title"><i class="fas fa-sliders-h"></i> Pesos óptimos</div>
+          <div class="weight-row">
+            <div class="weight-header"><span>MLP</span><span id="wMLP">—</span></div>
+            <div class="weight-bar"><div class="weight-fill w-mlp" id="barMLP" style="width:0%"></div></div>
+          </div>
+          <div class="weight-row">
+            <div class="weight-header"><span>XGB</span><span id="wXGB">—</span></div>
+            <div class="weight-bar"><div class="weight-fill w-xgb" id="barXGB" style="width:0%"></div></div>
+          </div>
+          <div class="weight-row">
+            <div class="weight-header"><span>SVM</span><span id="wSVM">—</span></div>
+            <div class="weight-bar"><div class="weight-fill w-svm" id="barSVM" style="width:0%"></div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title"><i class="fas fa-th"></i> Matriz de confusión</div>
+          <div class="cm-grid">
+            <div></div>
+            <div class="cm-header">Pred. 0</div>
+            <div class="cm-header">Pred. 1</div>
+            <div class="cm-row-label">Real 0</div>
+            <div class="cm-cell cm-tn" id="cmTN">—</div>
+            <div class="cm-cell cm-fp" id="cmFP">—</div>
+            <div class="cm-row-label">Real 1</div>
+            <div class="cm-cell cm-fn" id="cmFN">—</div>
+            <div class="cm-cell cm-tp" id="cmTP">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-panel">
+        <div class="panel-title"><i class="fas fa-table"></i> Reporte de clasificación</div>
+        <table>
+          <thead>
+            <tr><th>Clase</th><th>Precision</th><th>Recall</th><th>F1-score</th><th>Support</th></tr>
+          </thead>
+          <tbody id="reportBody"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-panel">
+        <div class="panel-title"><i class="fas fa-chart-bar"></i> Importancia de características (XGBoost)</div>
+        <img id="featureChart" src="" alt="Feature importance">
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title"><i class="fas fa-filter"></i> Features seleccionadas</div>
+          <div class="features-wrap" id="featuresList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title"><i class="fas fa-cog"></i> Mejores parámetros XGB</div>
+          <div class="params-grid" id="paramsList"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<footer class="footer">© 2026 TT A - 103. All rights reserved.</footer>
+
+<script>
+  const STORAGE_KEY = 'votos_model_results';
+
+  window.addEventListener('load', () => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) {
+      document.getElementById('noData').style.display = 'block';
+      return;
+    }
+    try {
+      renderResults(JSON.parse(saved));
+    } catch(e) {
+      localStorage.removeItem(STORAGE_KEY);
+      document.getElementById('noData').style.display = 'block';
+    }
+  });
+
+  function renderResults(d) {
+    const pct = v => (v * 100).toFixed(1) + '%';
+
+    document.getElementById('mFinalAcc').textContent = pct(d.final_accuracy);
+    document.getElementById('mVotingAcc').textContent = pct(d.voting_accuracy);
+    document.getElementById('mThreshold').textContent = d.best_threshold.toFixed(2);
+    document.getElementById('mSamples').textContent = d.total_samples;
+    document.getElementById('accBadge').textContent = pct(d.final_accuracy);
+
+    const w = d.weights;
+    document.getElementById('wMLP').textContent = w.mlp.toFixed(2);
+    document.getElementById('wXGB').textContent = w.xgb.toFixed(2);
+    document.getElementById('wSVM').textContent = w.svm.toFixed(2);
+    setTimeout(() => {
+      document.getElementById('barMLP').style.width = (w.mlp * 100) + '%';
+      document.getElementById('barXGB').style.width = (w.xgb * 100) + '%';
+      document.getElementById('barSVM').style.width = (w.svm * 100) + '%';
+    }, 100);
+
+    const cm = d.confusion_matrix;
+    document.getElementById('cmTN').textContent = cm[0][0];
+    document.getElementById('cmFP').textContent = cm[0][1];
+    document.getElementById('cmFN').textContent = cm[1][0];
+    document.getElementById('cmTP').textContent = cm[1][1];
+
+    const r = d.report;
+    const tbody = document.getElementById('reportBody');
+    tbody.innerHTML = '';
+    [['Clase 0', r['0']], ['Clase 1', r['1']], ['Accuracy', null],
+     ['Macro avg', r['macro avg']], ['Weighted avg', r['weighted avg']]
+    ].forEach(([label, vals]) => {
+      const tr = document.createElement('tr');
+      if (!vals) {
+        tr.innerHTML = `<td>${label}</td><td>—</td><td>—</td>
+          <td style="color:#003b4a;font-weight:600">${(r.accuracy*100).toFixed(1)}%</td>
+          <td style="color:#777">${Math.round(d.total_samples * 0.2)}</td>`;
+      } else {
+        tr.innerHTML = `<td>${label}</td>
+          <td>${vals.precision.toFixed(2)}</td>
+          <td>${vals.recall.toFixed(2)}</td>
+          <td>${vals['f1-score'].toFixed(2)}</td>
+          <td style="color:#777">${vals.support}</td>`;
+      }
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('featureChart').src = 'data:image/png;base64,' + d.feature_chart;
+
+    const fl = document.getElementById('featuresList');
+    fl.innerHTML = '';
+    d.selected_features.forEach(f => {
+      const tag = document.createElement('span');
+      tag.className = 'feature-tag';
+      tag.textContent = f;
+      fl.appendChild(tag);
+    });
+
+    const pl = document.getElementById('paramsList');
+    pl.innerHTML = '';
+    Object.entries(d.xgb_params).forEach(([k, v]) => {
+      pl.innerHTML += `<div class="param-item"><div class="param-key">${k}</div><div class="param-val">${v}</div></div>`;
+    });
+
+    document.getElementById('results').style.display = 'block';
+  }
+</script>
+</body>
+</html>
