@@ -1,0 +1,124 @@
+{
+  "timestamp": "30/05/2026 06:40",
+  "total_samples": 32797,
+  "accuracy": 0.7582317073170731,
+  "n_features_sel": 15,
+  "n_trees": 200,
+  "n_classes": 2,
+  "classes": [
+    "extension",
+    "flexion"
+  ],
+  "best_params": {
+    "colsample_bytree": 0.8,
+    "learning_rate": 0.1,
+    "max_depth": 4,
+    "n_estimators": 200,
+    "subsample": 0.7
+  },
+  "selected_features": [
+    "MAV",
+    "WL",
+    "WAMP",
+    "VAR",
+    "SNR",
+    "LOG",
+    "SSI",
+    "TFR_MeanEnergy",
+    "E_Total",
+    "E_Low",
+    "R_Mid",
+    "TopFreq2",
+    "SpectralEntropy",
+    "SpectralKurtosis",
+    "MeanFreq"
+  ],
+  "feature_importances": [
+    [
+      "SpectralEntropy",
+      0.21626822650432587
+    ],
+    [
+      "SNR",
+      0.1369764357805252
+    ],
+    [
+      "E_Total",
+      0.08770435303449631
+    ],
+    [
+      "TFR_MeanEnergy",
+      0.08348846435546875
+    ],
+    [
+      "LOG",
+      0.07188531011343002
+    ],
+    [
+      "E_Low",
+      0.05985034257173538
+    ],
+    [
+      "SSI",
+      0.05677777901291847
+    ],
+    [
+      "WAMP",
+      0.04359511286020279
+    ],
+    [
+      "MeanFreq",
+      0.04220504313707352
+    ],
+    [
+      "WL",
+      0.041619591414928436
+    ],
+    [
+      "TopFreq2",
+      0.04070144519209862
+    ],
+    [
+      "MAV",
+      0.03541484475135803
+    ],
+    [
+      "SpectralKurtosis",
+      0.029204271733760834
+    ],
+    [
+      "R_Mid",
+      0.02794582210481167
+    ],
+    [
+      "VAR",
+      0.026362936943769455
+    ]
+  ],
+  "report_rows": [
+    {
+      "label": "extension",
+      "precision": 0.7525342874180083,
+      "recall": 0.7695121951219512,
+      "f1": 0.760928549894483,
+      "support": 3280
+    },
+    {
+      "label": "flexion",
+      "precision": 0.7641921397379913,
+      "recall": 0.7469512195121951,
+      "f1": 0.7554733271662041,
+      "support": 3280
+    }
+  ],
+  "confusion_matrix": [
+    [
+      2524,
+      756
+    ],
+    [
+      830,
+      2450
+    ]
+  ]
+}

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TT A-103</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+<style>
+  :root {
+    --accent: #00d4aa; --accent2: #7c6af7; --warn: #f0a830;
+    --surface: #ffffff; --surface2: #f4f7f6; --border: #e0e0e0;
+    --text: #333; --muted: #777;
+    --success-bg: #e6f9f5; --success-text: #00a080;
+    --danger-bg: #fdecea;  --danger-text: #c0392b;
+  }
+
+  .modelo-wrap { width: 100%; max-width: 1100px; }
+
+  .no-data {
+    text-align: center; padding: 4rem 2rem;
+    background: var(--surface); border-radius: 20px;
+    border: 1px solid var(--border); box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+  }
+  .no-data i { font-size: 3rem; color: #ccc; margin-bottom: 1rem; display: block; }
+  .no-data p { color: var(--muted); margin-bottom: 1.5rem; }
+  .no-data a {
+    display: inline-block; padding: 0.7rem 1.5rem; background: #003b4a;
+    color: white; border-radius: 10px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 700; transition: all 0.2s;
+  }
+  .no-data a:hover { background: #005f76; transform: translateY(-1px); }
+
+  .cached-notice {
+    background: #e8f4f6; border: 1px solid #b8dce8; border-radius: 10px;
+    padding: 0.6rem 1rem; font-size: 0.75rem; color: #003b4a;
+    margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;
+  }
+
+  .section-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin-bottom: 1.25rem; display: flex;
+    align-items: center; gap: 8px; font-weight: 600;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .badge { display: inline-block; font-size: 0.65rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+  .badge-green { background: var(--success-bg); color: var(--success-text); border: 1px solid #b2dfdb; }
+
+  .metrics-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px; margin-bottom: 1.5rem;
+  }
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 1.25rem 1rem; text-align: center; position: relative; overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .metric-card:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(0,59,74,0.12); }
+  .metric-card.highlight { border-color: #003b4a; }
+  .metric-card.highlight::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #003b4a, var(--accent)); }
+  .metric-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.5rem; font-weight: 600; }
+  .metric-value { font-size: 1.8rem; font-weight: 800; color: #003b4a; }
+  .metric-value.green  { color: var(--accent); }
+  .metric-value.purple { color: var(--accent2); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .panel-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .panel-title::after { content: ''; flex:1; height: 1px; background: var(--border); }
+
+  .imp-row { margin-bottom: 0.75rem; }
+  .imp-header { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: var(--muted); }
+  .imp-header span:last-child { color: var(--text); font-weight: 600; }
+  .imp-bar { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .imp-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #003b4a, var(--accent)); transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+
+  .cm-wrap { overflow-x: auto; }
+  .cm-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+  .cm-table th { padding: 6px 10px; font-size: 0.62rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; background: var(--surface2); }
+  .cm-table td { padding: 0.75rem 0.5rem; text-align: center; font-size: 1.1rem; font-weight: 800; border: 1px solid var(--border); }
+  .cm-diag { background: var(--success-bg); color: var(--success-text); }
+  .cm-off  { background: var(--danger-bg);  color: var(--danger-text); }
+  .cm-zero { background: var(--surface2);   color: #bbb; }
+
+  .report-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  table.report { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  table.report thead th { text-align: center; padding: 0.6rem 0.75rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border-bottom: 2px solid var(--border); font-weight: 600; }
+  table.report thead th:first-child { text-align: left; }
+  table.report tbody td { text-align: center; padding: 0.7rem 0.75rem; border-bottom: 1px solid #f0f0f0; }
+  table.report tbody td:first-child { text-align: left; color: var(--text); font-weight: 600; }
+  table.report tbody tr:last-child td { border-bottom: none; color: var(--muted); font-style: italic; }
+  table.report tbody tr:hover td { background: var(--surface2); }
+
+  .features-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.75rem; }
+  .feature-tag { font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; background: #e8f4f6; border: 1px solid #b8dce8; color: #003b4a; font-weight: 500; }
+
+  .params-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 0.75rem; }
+  .param-item { background: var(--surface2); border-radius: 10px; padding: 0.6rem 0.75rem; border: 1px solid var(--border); }
+  .param-key { font-size: 0.62rem; color: var(--muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .param-val { font-size: 0.85rem; color: #003b4a; font-weight: 700; }
+
+  @media (max-width: 700px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    .params-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="navbar">
+  <div class="logo"></div>
+  <nav class="menu">
+    <a href="{{ url_for('home') }}">Inicio</a>
+    <a href="{{ url_for('arbol.arbol') }}">Regresar</a>
+    <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
+  </nav>
+</header>
+
+<main class="contenido" style="align-items:flex-start; padding-top:2rem;">
+  <div class="modelo-wrap">
+
+    {% if not resultados %}
+    <div class="no-data">
+      <i class="fas fa-tree"></i>
+      <p>Aún no hay resultados guardados. Entrena el modelo primero.</p>
+      <a href="{{ url_for('arbol.arbol') }}"><i class="fas fa-tree"></i> &nbsp;Ir a entrenar</a>
+    </div>
+
+    {% else %}
+
+    <div class="cached-notice">
+      <i class="fas fa-history"></i>
+      Resultados del último entrenamiento · {{ resultados.timestamp }} &nbsp;
+      <a href="{{ url_for('arbol.arbol') }}" style="color:#003b4a; font-weight:700;">Entrenar de nuevo →</a>
+    </div>
+
+    <div class="section-label" style="margin-bottom:1.25rem;">
+      <i class="fas fa-tree" style="color:#003b4a"></i>
+      Resultados del modelo · Random Forest &nbsp;
+      <span class="badge badge-green">{{ "%.1f"|format(resultados.accuracy * 100) }}%</span>
+    </div>
+
+    <!-- Métricas -->
+    <div class="metrics-grid">
+      <div class="metric-card highlight">
+        <div class="metric-label">Accuracy test</div>
+        <div class="metric-value green">{{ "%.1f"|format(resultados.accuracy * 100) }}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">CV 5-fold (media)</div>
+        <div class="metric-value purple">{{ "%.1f"|format(resultados.cv_mean * 100) }}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">OOB Score</div>
+        <div class="metric-value" style="color:#003b4a">{{ "%.1f"|format(resultados.oob_score * 100) }}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total muestras</div>
+        <div class="metric-value" style="color:#003b4a">{{ resultados.total_samples }}</div>
+      </div>
+    </div>
+
+    <!-- Importancia + Matriz -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-sort-amount-down"></i> Top features (importancia)</div>
+        {% set max_imp = resultados.feature_importances[0][1] %}
+        {% for name, imp in resultados.feature_importances[:10] %}
+        <div class="imp-row">
+          <div class="imp-header"><span>{{ name }}</span><span>{{ "%.4f"|format(imp) }}</span></div>
+          <div class="imp-bar">
+            <div class="imp-fill" style="width:{{ ((imp / max_imp) * 100)|round }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-th"></i> Matriz de confusión</div>
+        <div class="cm-wrap">
+          <table class="cm-table">
+            <thead>
+              <tr>
+                <th></th>
+                {% for c in resultados.classes %}<th>{{ c }}</th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in range(resultados.confusion_matrix | length) %}
+              <tr>
+                <th>{{ resultados.classes[i] }}</th>
+                {% for j in range(resultados.confusion_matrix[i] | length) %}
+                {% set val = resultados.confusion_matrix[i][j] %}
+                <td class="{{ 'cm-diag' if i == j else ('cm-zero' if val == 0 else 'cm-off') }}">
+                  {{ val }}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mejores parámetros -->
+        <div class="panel-title" style="margin-top:1.5rem"><i class="fas fa-sliders-h"></i> Mejores parámetros</div>
+        <div class="params-grid">
+          {% for k, v in resultados.best_params.items() %}
+          <div class="param-item">
+            <div class="param-key">{{ k }}</div>
+            <div class="param-val">{{ v if v != None else 'None' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Classification report -->
+    <div class="report-panel">
+      <div class="panel-title"><i class="fas fa-table"></i> Reporte de clasificación</div>
+      <table class="report">
+        <thead>
+          <tr><th>Clase</th><th>Precision</th><th>Recall</th><th>F1-score</th><th>Support</th></tr>
+        </thead>
+        <tbody>
+          {% for row in resultados.report_rows %}
+          <tr>
+            <td>{{ row.label }}</td>
+            <td>{{ "%.2f"|format(row.precision) }}</td>
+            <td>{{ "%.2f"|format(row.recall) }}</td>
+            <td>{{ "%.2f"|format(row.f1) }}</td>
+            <td>{{ row.support }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Features + Descarga -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-filter"></i> Todas las features</div>
+        <div class="features-wrap">
+          {% for name, imp in resultados.feature_importances %}
+          <span class="feature-tag">{{ name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="panel" style="display:flex;flex-direction:column;justify-content:center;">
+        <div class="panel-title"><i class="fas fa-download"></i> Artefactos guardados</div>
+        <p style="font-size:0.8rem;color:var(--muted);margin:0 0 0.5rem">
+          Descargar el modelo entrenado (<code>modelo_rf.pkl</code>) para inferencia externa.
+        </p>
+        <p style="font-size:0.75rem;color:var(--muted);margin:0 0 1rem">
+          CV std: ±{{ "%.2f"|format(resultados.cv_std * 100) }}% &nbsp;·&nbsp;
+          {{ resultados.n_classes }} clases
+        </p>
+        <a href="{{ url_for('arbol.arbol_download') }}" style="
+          display:inline-flex;align-items:center;gap:8px;
+          padding:0.65rem 1.25rem;background:#003b4a;color:white;
+          border-radius:10px;text-decoration:none;font-size:0.85rem;font-weight:700;
+          transition:all 0.2s;width:fit-content;">
+          <i class="fas fa-download"></i> Descargar modelo_rf.pkl
+        </a>
+      </div>
+    </div>
+
+    {% endif %}
+  </div>
+</main>
+
+<footer class="footer">© 2026 TT A - 103. All rights reserved.</footer>
+</body>
+</html>

@@ -21,7 +21,6 @@
     background: var(--surface); position: relative; overflow: hidden;
     box-shadow: 0 10px 20px rgba(0,0,0,0.05);
   }
-
   .upload-section::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0;
     height: 3px; background: linear-gradient(90deg, #003b4a, var(--accent));
@@ -66,8 +65,7 @@
 
   .success-box {
     display: none; background: #e8f4f6; border: 1px solid #b8dce8;
-    border-radius: 12px; padding: 1.25rem; margin-top: 1.25rem;
-    text-align: center;
+    border-radius: 12px; padding: 1.25rem; margin-top: 1.25rem; text-align: center;
   }
   .success-box p { color: #003b4a; font-size: 0.85rem; margin-bottom: 1rem; font-weight: 500; }
   .ver-btn {
@@ -77,6 +75,15 @@
     letter-spacing: 0.04em; transition: all 0.2s;
   }
   .ver-btn:hover { background: #005f76; transform: translateY(-1px); }
+
+  .features-section {
+    margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.25rem;
+  }
+  .feats-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.75rem; }
+  .feat-tag {
+    font-size: 0.7rem; padding: 3px 10px; border-radius: 20px;
+    background: #e8f4f6; border: 1px solid #b8dce8; color: #003b4a; font-weight: 500;
+  }
 </style>
 </head>
 <body>
@@ -85,7 +92,7 @@
   <div class="logo"></div>
   <nav class="menu">
     <a href="{{ url_for('modelo') }}">Regresar</a>
-    <a href="{{ url_for('vistaVotos') }}">Resultados</a>
+    <a href="{{ url_for('arbol.vista_arbol') }}">Resultados</a>
     <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
   </nav>
 </header>
@@ -93,12 +100,18 @@
 <main class="contenido">
   <div class="modelo-wrap">
     <div class="upload-section">
-      <div class="section-label"><i class="fas fa-brain" style="color:#003b4a"></i> Entrenamiento · Ensemble Voting</div>
+      <div class="section-label">
+        <i class="fas fa-tree" style="color:#003b4a"></i> Entrenamiento · Random Forest
+      </div>
 
       <div class="upload-area" id="uploadArea">
         <input type="file" id="csvFile" accept=".csv">
         <div class="upload-icon"><i class="fas fa-file-csv"></i></div>
-        <div class="upload-text">Arrastra tu archivo <strong>CSV</strong> aquí<br>o haz clic para seleccionar</div>
+        <div class="upload-text">
+          Arrastra tu archivo <strong>CSV</strong> aquí<br>
+          o haz clic para seleccionar<br>
+          <small style="color:#aaa">26 features + columna label</small>
+        </div>
       </div>
       <div class="file-name" id="fileName"></div>
 
@@ -114,9 +127,29 @@
       <div class="error-box" id="errorBox"></div>
 
       <div class="success-box" id="successBox">
-        <p><i class="fas fa-check-circle" style="color:#003b4a; margin-right:6px"></i> Modelo entrenado correctamente. Los resultados han sido guardados.</p>
-        <a href="{{ url_for('vistaVotos') }}" class="ver-btn"><i class="fas fa-chart-bar"></i> &nbsp;Ver resultados</a>
+        <p><i class="fas fa-check-circle" style="color:#003b4a; margin-right:6px"></i>
+           Modelo entrenado correctamente. Los resultados han sido guardados.</p>
+        <a href="{{ url_for('arbol.vista_arbol') }}" class="ver-btn">
+          <i class="fas fa-chart-bar"></i> &nbsp;Ver resultados
+        </a>
       </div>
+
+      <div class="features-section">
+        <div class="section-label">
+          <i class="fas fa-list" style="color:#003b4a"></i> Features esperadas (26)
+        </div>
+        <div class="feats-wrap">
+          {% for f in ["WAMP","VAR","ZC","SSC","LOG","SSI",
+                       "MedFreq","TFR_MeanEnergy","TFR_MaxEnergy","TFR_Entropy",
+                       "E_Total","E_Low","E_Mid","E_High",
+                       "R_Low","R_Mid","R_High","R_HighLow",
+                       "TopFreq1","TopFreq2","TopFreq3","TopFreq4","TopFreq5",
+                       "SpectralEntropy","SpectralKurtosis","MeanFreq"] %}
+          <span class="feat-tag">{{ f }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
     </div>
   </div>
 </main>
@@ -124,18 +157,19 @@
 <footer class="footer">© 2026 TT A - 103. All rights reserved.</footer>
 
 <script>
-  const STORAGE_KEY = 'votos_model_results';
   const steps = [
-    "Cargando datos CSV...", "Normalizando features...",
-    "Optimizando XGBoost con GridSearchCV...", "Seleccionando features relevantes...",
-    "Entrenando red neuronal MLP...", "Entrenando SVM con kernel RBF...",
-    "Calculando pesos del ensemble...", "Optimizando threshold de decisión...",
-    "Generando métricas finales..."
+    "Cargando datos y limpiando NaN/Inf...",
+    "Normalizando con StandardScaler...",
+    "GridSearchCV en progreso (puede tardar)...",
+    "Validación cruzada 5-fold...",
+    "Calculando OOB score...",
+    "Evaluando en conjunto de prueba...",
+    "Guardando artefactos (pkl)..."
   ];
 
   let stepInterval = null, currentStep = 0;
-  const csvFile = document.getElementById('csvFile');
-  const trainBtn = document.getElementById('trainBtn');
+  const csvFile    = document.getElementById('csvFile');
+  const trainBtn   = document.getElementById('trainBtn');
   const uploadArea = document.getElementById('uploadArea');
 
   csvFile.addEventListener('change', () => {
@@ -163,7 +197,7 @@
     const file = csvFile.files[0];
     if (!file) return;
 
-    document.getElementById('errorBox').style.display = 'none';
+    document.getElementById('errorBox').style.display   = 'none';
     document.getElementById('successBox').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'block';
     trainBtn.disabled = true;
@@ -172,26 +206,23 @@
     stepInterval = setInterval(() => {
       if (currentStep < steps.length)
         document.getElementById('progressText').textContent = steps[currentStep++];
-    }, 2500);
+    }, 2800);
 
     const formData = new FormData();
     formData.append('csv_file', file);
 
-    fetch('/votos', { method: 'POST', body: formData })
+    fetch('{{ url_for("arbol.arbol_train") }}', { method: 'POST', body: formData })
       .then(r => r.json())
       .then(data => {
         clearInterval(stepInterval);
         document.getElementById('progressWrap').style.display = 'none';
         trainBtn.disabled = false;
-
         if (data.error) {
           const eb = document.getElementById('errorBox');
           eb.textContent = '⚠ ' + data.error;
           eb.style.display = 'block';
           return;
         }
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         document.getElementById('successBox').style.display = 'block';
       })
       .catch(err => {

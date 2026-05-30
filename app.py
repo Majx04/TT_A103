@@ -1224,8 +1224,14 @@ def votos():
 @app.route('/vista_votos')
 def vistaVotos():
     return render_template('vista_votos.html')
-if __name__ == '__main__':
-    app.run(debug=True)
+
+#------------XGBOOST
+from rutas.xgboost import xgboost_bp
+app.register_blueprint(xgboost_bp)
+
+#---------------RANDOM FOREST
+from rutas.arbol import arbol_bp
+app.register_blueprint(arbol_bp)
 
 
 # ========================

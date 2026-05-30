@@ -14,6 +14,7 @@
     <div class="logo"></div>
     <nav class="menu">
         <a href="{{ url_for('home') }}">Inicio</a>
+        <a href="{{ url_for('modelo_view') }}">Regresar</a>
         <a href="{{ url_for('logout') }}">Cerrar Sesión</a>
     </nav>
 </header>
@@ -29,11 +30,19 @@
             </div>
         </a>
 
-         <a href="{{ url_for('home') }}" class="card-link">
+         <a href="{{ url_for('xgboost.xgboost') }}" class="card-link">
             <div class="card">
                 <span class="icon"><i class="fas fa-microchip"></i></span>
                 <h3>Modelo II</h3>
-                <p>Modelo embebido en el microcontrolador</p>
+                <p>Modelo XGBoost</p>
+            </div>
+        </a>
+
+        <a href="{{ url_for('arbol.arbol') }}" class="card-link">
+            <div class="card">
+                <span class="icon"><i class="fas fa-microchip"></i></span>
+                <h3>Modelo III</h3>
+                <p>Modelo Árbol de desición</p>
             </div>
         </a>
     </div>
